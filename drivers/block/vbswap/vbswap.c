@@ -56,7 +56,7 @@ static void vbswap_init_disksize(u64 disksize)
 	vbswap_initialized = 1;
 }
 
-static int vbswap_bvec_read(struct bio_vec bvec,
+static int vbswap_bvec_read(struct bio_vec *bvec,
 			    u32 index, struct bio *bio)
 {
 	struct page *page;
@@ -67,11 +67,11 @@ static int vbswap_bvec_read(struct bio_vec bvec,
 		return -EIO;
 	}
 
-	page = bvec.bv_page;
+	page = bvec->bv_page;
 
 	user_mem = kmap_atomic(page);
 	swap_header_page_mem = kmap_atomic(swap_header_page);
-	memcpy(user_mem, swap_header_page_mem, bvec.bv_len);
+	memcpy(user_mem, swap_header_page_mem, bvec->bv_len);
 	kunmap_atomic(swap_header_page_mem);
 	kunmap_atomic(user_mem);
 	flush_dcache_page(page);
@@ -79,7 +79,7 @@ static int vbswap_bvec_read(struct bio_vec bvec,
 	return 0;
 }
 
-static int vbswap_bvec_write(struct bio_vec bvec,
+static int vbswap_bvec_write(struct bio_vec *bvec,
 			     u32 index, struct bio *bio)
 {
 	struct page *page;
@@ -90,7 +90,7 @@ static int vbswap_bvec_write(struct bio_vec bvec,
 		return -EIO;
 	}
 
-	page = bvec.bv_page;
+	page = bvec->bv_page;
 
 	user_mem = kmap_atomic(page);
 	swap_header_page_mem = kmap_atomic(swap_header_page);
@@ -101,7 +101,7 @@ static int vbswap_bvec_write(struct bio_vec bvec,
 	return 0;
 }
 
-static int vbswap_bvec_rw(struct bio_vec bvec,
+static int vbswap_bvec_rw(struct bio_vec *bvec,
 			  u32 index, struct bio *bio, int rw)
 {
 	int ret;
@@ -168,7 +168,7 @@ static void __vbswap_make_request(struct bio *bio, int rw)
 			 "(%d, %d, %d)\n",
 			 __func__, __LINE__, rw, index, bvec.bv_len);
 
-		ret = vbswap_bvec_rw(bvec, index, bio, rw);
+		ret = vbswap_bvec_rw(&bvec, index, bio, rw);
 		if (ret < 0) {
 			if (ret != -ENOSPC)
 				pr_err("%s %d: vbswap_bvec_rw failed."
