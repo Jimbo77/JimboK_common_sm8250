@@ -32,6 +32,7 @@ static struct page *swap_header_page;
 static bool vbswap_initialized;
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 /* total not-mapped-slot free number */
 static atomic_t vbswap_not_mapped_slot_free_num;
 
@@ -59,6 +60,25 @@ static void vbswap_init_disksize(u64 disksize)
 
 =======
 >>>>>>> 35a75a0de60c... vbswap: remove a dedicated vbswap_init_disksize()
+=======
+/*
+ * Check if request is within bounds and aligned on vbswap logical blocks.
+ */
+static inline int vbswap_valid_io_request(struct bio *bio)
+{
+	if (unlikely(
+		(bio->bi_iter.bi_sector >= (vbswap_disksize >> SECTOR_SHIFT)) ||
+		(bio->bi_iter.bi_sector & (VBSWAP_SECTOR_PER_LOGICAL_BLOCK - 1)) ||
+		(bio->bi_iter.bi_size & (VBSWAP_LOGICAL_BLOCK_SIZE - 1)))) {
+
+		return 0;
+	}
+
+	/* I/O request is valid */
+	return 1;
+}
+
+>>>>>>> d9992711cb4b... vbswap: move I/O check under __vbswap_make_request()
 static int vbswap_bvec_read(struct bio_vec *bvec,
 			    u32 index, struct bio *bio)
 {
@@ -119,6 +139,19 @@ static void __vbswap_make_request(struct bio *bio, int rw)
 	u32 index, is_swap_header_page;
 	struct bio_vec bvec;
 	struct bvec_iter iter;
+
+	if (!vbswap_valid_io_request(bio)) {
+		pr_err("%s %d: invalid io request. "
+		       "(bio->bi_iter.bi_sector, bio->bi_iter.bi_size,"
+		       "vbswap_disksize) = "
+		       "(%llu, %d, %llu)\n",
+		       __func__, __LINE__,
+		       (unsigned long long)bio->bi_iter.bi_sector,
+		       bio->bi_iter.bi_size, vbswap_disksize);
+
+		bio_io_error(bio);
+		return;
+	}
 
 	index = bio->bi_iter.bi_sector >> SECTORS_PER_PAGE_SHIFT;
 	offset = (bio->bi_iter.bi_sector & (SECTORS_PER_PAGE - 1)) <<
@@ -190,47 +223,16 @@ out_error:
 }
 
 /*
- * Check if request is within bounds and aligned on vbswap logical blocks.
- */
-static inline int vbswap_valid_io_request(struct bio *bio)
-{
-	if (unlikely(
-		(bio->bi_iter.bi_sector >= (vbswap_disksize >> SECTOR_SHIFT)) ||
-		(bio->bi_iter.bi_sector & (VBSWAP_SECTOR_PER_LOGICAL_BLOCK - 1)) ||
-		(bio->bi_iter.bi_size & (VBSWAP_LOGICAL_BLOCK_SIZE - 1)))) {
-
-		return 0;
-	}
-
-	/* I/O request is valid */
-	return 1;
-}
-
-/*
  * Handler function for all vbswap I/O requests.
  */
 static blk_qc_t vbswap_make_request(struct request_queue *queue,
 				    struct bio *bio)
 {
-	if (likely(bio->bi_iter.bi_sector >> SECTORS_PER_PAGE_SHIFT)) {
+	if (likely(bio->bi_iter.bi_sector >> SECTORS_PER_PAGE_SHIFT))
 		bio_io_error(bio);
-		return BLK_QC_T_NONE;
-	}
+	else
+		__vbswap_make_request(bio, bio_data_dir(bio));
 
-	if (!vbswap_valid_io_request(bio)) {
-		pr_err("%s %d: invalid io request. "
-		       "(bio->bi_iter.bi_sector, bio->bi_iter.bi_size,"
-		       "vbswap_disksize) = "
-		       "(%llu, %d, %llu)\n",
-		       __func__, __LINE__,
-		       (unsigned long long)bio->bi_iter.bi_sector,
-		       bio->bi_iter.bi_size, vbswap_disksize);
-
-		bio_io_error(bio);
-		return BLK_QC_T_NONE;
-	}
-
-	__vbswap_make_request(bio, bio_data_dir(bio));
 	return BLK_QC_T_NONE;
 }
 
