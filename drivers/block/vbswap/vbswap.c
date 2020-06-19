@@ -31,36 +31,6 @@ static u64 vbswap_disksize;
 static struct page *swap_header_page;
 static bool vbswap_initialized;
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-/* total not-mapped-slot free number */
-static atomic_t vbswap_not_mapped_slot_free_num;
-
-static void vbswap_init_disksize(u64 disksize)
-{
-	if (vbswap_initialized) {
-		pr_err("%s %d: disksize is already initialized (disksize = %llu)\n",
-				__func__, __LINE__, vbswap_disksize);
-		return;
-	}
-
-	vbswap_disksize = PAGE_ALIGN(disksize);
-	if (!vbswap_disksize) {
-		pr_err("%s %d: disksize is invalid (disksize = %llu)\n",
-		       __func__, __LINE__, vbswap_disksize);
-		vbswap_disksize = 0;
-		vbswap_initialized = 0;
-		return;
-	}
-	set_capacity(vbswap_disk,
-		     vbswap_disksize >> SECTOR_SHIFT);
-
-	vbswap_initialized = 1;
-}
-
-=======
->>>>>>> 35a75a0de60c... vbswap: remove a dedicated vbswap_init_disksize()
-=======
 /*
  * Check if request is within bounds and aligned on vbswap logical blocks.
  */
@@ -78,7 +48,6 @@ static inline int vbswap_valid_io_request(struct bio *bio)
 	return 1;
 }
 
->>>>>>> d9992711cb4b... vbswap: move I/O check under __vbswap_make_request()
 static int vbswap_bvec_read(struct bio_vec *bvec,
 			    u32 index, struct bio *bio)
 {
@@ -241,14 +210,7 @@ static blk_qc_t vbswap_make_request(struct request_queue *queue,
 	return BLK_QC_T_NONE;
 }
 
-static void vbswap_slot_free_notify(struct block_device *bdev,
-				    unsigned long index)
-{
-	atomic_inc(&vbswap_not_mapped_slot_free_num);
-}
-
-static const struct block_device_operations vbswap_devops = {
-	.swap_slot_free_notify = vbswap_slot_free_notify,
+static const struct block_device_operations vbswap_fops = {
 	.owner = THIS_MODULE
 };
 
@@ -291,19 +253,10 @@ static ssize_t disksize_store(struct device *dev,
 	return len;
 }
 
-static ssize_t vbswap_swap_info_show(struct device *dev,
-				     struct device_attribute *attr, char *buf)
-{
-	return sprintf(buf, "%d\n", vbswap_not_mapped_slot_free_num.counter);
-}
-
 static DEVICE_ATTR(disksize, S_IRUGO | S_IWUSR, disksize_show, disksize_store);
-static DEVICE_ATTR(vbswap_swap_info, S_IRUGO | S_IWUSR,
-		   vbswap_swap_info_show, NULL);
 
 static struct attribute *vbswap_disk_attrs[] = {
 	&dev_attr_disksize.attr,
-	&dev_attr_vbswap_swap_info.attr,
 	NULL,
 };
 
@@ -332,14 +285,6 @@ static int create_device(void)
 		goto out_put_disk;
 	}
 
-<<<<<<< HEAD
-	vbswap->disk->major = vbswap_major;
-	vbswap->disk->first_minor = 0;
-	vbswap->disk->fops = &vbswap_devops;
-	vbswap->disk->queue = vbswap->queue;
-	vbswap->disk->private_data = vbswap;
-	snprintf(vbswap->disk->disk_name, 16, "vbswap%d", 0);
-=======
 	blk_queue_make_request(vbswap_disk->queue, vbswap_make_request);
 
 	vbswap_disk->major = vbswap_major;
@@ -347,7 +292,6 @@ static int create_device(void)
 	vbswap_disk->fops = &vbswap_fops;
 	vbswap_disk->private_data = NULL;
 	snprintf(vbswap_disk->disk_name, 16, "vbswap%d", 0);
->>>>>>> 7f6fc6301f6b... vbswap: remove struct vbswap
 
 	/* Actual capacity set using sysfs (/sys/block/vbswap<id>/disksize) */
 	set_capacity(vbswap_disk, 0);
