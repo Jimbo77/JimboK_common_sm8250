@@ -7053,7 +7053,8 @@ void lim_update_sta_he_capable(struct mac_context *mac,
 	struct pe_session *session_entry)
 {
 	if (LIM_IS_AP_ROLE(session_entry) || LIM_IS_IBSS_ROLE(session_entry))
-		add_sta_params->he_capable = sta_ds->mlmStaContext.he_capable;
+		add_sta_params->he_capable = sta_ds->mlmStaContext.he_capable &&
+						session_entry->he_capable;
 #ifdef FEATURE_WLAN_TDLS
 	else if (STA_ENTRY_TDLS_PEER == sta_ds->staType)
 		add_sta_params->he_capable = sta_ds->mlmStaContext.he_capable;
@@ -7079,6 +7080,9 @@ void lim_update_session_he_capable(struct mac_context *mac, struct pe_session *s
 {
 	session->he_capable = true;
 	pe_debug("he_capable: %d", session->he_capable);
+	if (wlan_reg_is_24ghz_ch(session->currentOperChannel) &&
+	    !mac->mlme_cfg->vht_caps.vht_cap_info.b24ghz_band)
+		session->vhtCapability = 0;
 }
 
 void lim_update_chan_he_capable(struct mac_context *mac, tpSwitchChannelParams chan)

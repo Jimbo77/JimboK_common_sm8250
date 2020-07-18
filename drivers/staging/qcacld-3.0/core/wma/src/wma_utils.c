@@ -63,7 +63,7 @@
 #include <wlan_mlme_main.h>
 #include "host_diag_core_log.h"
 #include <wlan_mlme_api.h>
-#include "cdp_txrx_misc.h"
+#include <cdp_txrx_host_stats.h>
 
 /* MCS Based rate table */
 /* HT MCS parameters with Nss = 1 */
@@ -650,78 +650,14 @@ int wma_smps_mode_to_force_mode_param(uint8_t smps_mode)
 }
 
 #ifdef WLAN_FEATURE_STATS_EXT
-#ifdef FEATURE_STATS_EXT_V2
-int wma_stats_ext_event_handler(void *handle, uint8_t *event_buf,
-				uint32_t len)
-{
-	WMI_STATS_EXT_EVENTID_param_tlvs *param_buf;
-	tSirStatsExtEvent *stats_ext_event;
-	wmi_stats_ext_event_fixed_param *stats_ext_info;
-	QDF_STATUS status;
-	struct scheduler_msg cds_msg = {0};
-	uint8_t *buf_ptr;
-	uint32_t alloc_len;
-	struct cdp_txrx_ext_stats ext_stats = {0};
-	struct cdp_soc_t *soc_hdl = cds_get_context(QDF_MODULE_ID_SOC);
-	void *pdev = cds_get_context(QDF_MODULE_ID_TXRX);
-
-	wma_debug("%s: Posting stats ext event to SME", __func__);
-
-	param_buf = (WMI_STATS_EXT_EVENTID_param_tlvs *)event_buf;
-	if (!param_buf) {
-		wma_err("%s: Invalid stats ext event buf", __func__);
-		return -EINVAL;
-	}
-
-	stats_ext_info = param_buf->fixed_param;
-	buf_ptr = (uint8_t *)stats_ext_info;
-
-	alloc_len = sizeof(tSirStatsExtEvent);
-	alloc_len += stats_ext_info->data_len;
-	alloc_len += sizeof(struct cdp_txrx_ext_stats);
-
-	if (stats_ext_info->data_len > (WMI_SVC_MSG_MAX_SIZE -
-	    WMI_TLV_HDR_SIZE - sizeof(*stats_ext_info)) ||
-	    stats_ext_info->data_len > param_buf->num_data) {
-		wma_err("Excess data_len:%d, num_data:%d",
-			stats_ext_info->data_len, param_buf->num_data);
-		return -EINVAL;
-	}
-	stats_ext_event = qdf_mem_malloc(alloc_len);
-	if (!stats_ext_event)
-		return -ENOMEM;
-
-	buf_ptr += sizeof(wmi_stats_ext_event_fixed_param) + WMI_TLV_HDR_SIZE;
-
-	stats_ext_event->vdev_id = stats_ext_info->vdev_id;
-	stats_ext_event->event_data_len = stats_ext_info->data_len;
-	qdf_mem_copy(stats_ext_event->event_data,
-		     buf_ptr, stats_ext_event->event_data_len);
-
-	cdp_txrx_ext_stats_request(soc_hdl, pdev, &ext_stats);
-
-	qdf_mem_copy(stats_ext_event->event_data +
-		     stats_ext_event->event_data_len,
-		     &ext_stats, sizeof(struct cdp_txrx_ext_stats));
-
-	stats_ext_event->event_data_len += sizeof(struct cdp_txrx_ext_stats);
-
-	cds_msg.type = eWNI_SME_STATS_EXT_EVENT;
-	cds_msg.bodyptr = (void *)stats_ext_event;
-	cds_msg.bodyval = 0;
-
-	status = scheduler_post_message(QDF_MODULE_ID_WMA,
-					QDF_MODULE_ID_SME,
-					QDF_MODULE_ID_SME, &cds_msg);
-	if (status != QDF_STATUS_SUCCESS) {
-		qdf_mem_free(stats_ext_event);
-		return -EFAULT;
-	}
-
-	wma_debug("%s: stats ext event Posted to SME", __func__);
-	return 0;
-}
-#else
+/**
+* wma_stats_ext_event_handler() - extended stats event handler
+* @handle:     wma handle
+* @event_buf:  event buffer received from fw
+* @len:        length of data
+*
+* Return: 0 for success or error code
+*/
 int wma_stats_ext_event_handler(void *handle, uint8_t *event_buf,
 				uint32_t len)
 {
@@ -735,14 +671,14 @@ int wma_stats_ext_event_handler(void *handle, uint8_t *event_buf,
 
 	WMA_LOGD("%s: Posting stats ext event to SME", __func__);
 
-	param_buf = (WMI_STATS_EXT_EVENTID_param_tlvs *)event_buf;
+	param_buf = (WMI_STATS_EXT_EVENTID_param_tlvs *) event_buf;
 	if (!param_buf) {
 		WMA_LOGE("%s: Invalid stats ext event buf", __func__);
 		return -EINVAL;
 	}
 
 	stats_ext_info = param_buf->fixed_param;
-	buf_ptr = (uint8_t *)stats_ext_info;
+	buf_ptr = (uint8_t *) stats_ext_info;
 
 	alloc_len = sizeof(tSirStatsExtEvent);
 	alloc_len += stats_ext_info->data_len;
@@ -780,7 +716,6 @@ int wma_stats_ext_event_handler(void *handle, uint8_t *event_buf,
 	WMA_LOGD("%s: stats ext event Posted to SME", __func__);
 	return 0;
 }
-#endif
 #endif /* WLAN_FEATURE_STATS_EXT */
 
 /**
@@ -1608,6 +1543,12 @@ static int wma_unified_link_peer_stats_event_handler(void *handle,
 	size_t link_stats_results_size;
 	bool excess_data = false;
 	uint32_t buf_len = 0;
+	struct cdp_peer_stats *dp_stats = NULL;
+	void *dp_soc = cds_get_context(QDF_MODULE_ID_SOC);
+	uint8_t mcs_index;
+	struct cdp_pdev *txrx_pdev = cds_get_context(QDF_MODULE_ID_TXRX);
+	struct cdp_peer *peer;
+	uint8_t peer_id;
 
 	struct mac_context *mac = cds_get_context(QDF_MODULE_ID_PE);
 
@@ -1717,8 +1658,22 @@ static int wma_unified_link_peer_stats_event_handler(void *handle,
 			     t_peer_stats + next_peer_offset, peer_info_size);
 		next_res_offset += peer_info_size;
 
+		peer = cdp_peer_find_by_addr(dp_soc, txrx_pdev,
+				       (uint8_t *)&peer_stats->peer_mac_address,
+				       &peer_id);
+		if (peer)
+			dp_stats = cdp_host_get_peer_stats(dp_soc, peer);
+
 		/* Copy rate stats associated with this peer */
 		for (count = 0; count < peer_stats->num_rates; count++) {
+			mcs_index = RATE_STAT_GET_MCS_INDEX(rate_stats->rate);
+			if (dp_stats) {
+				if (rate_stats->rate && mcs_index < MAX_MCS)
+					rate_stats->rx_mpdu =
+					    dp_stats->rx.rx_mpdu_cnt[mcs_index];
+				else
+					rate_stats->rx_mpdu = 0;
+			}
 			rate_stats++;
 
 			qdf_mem_copy(results + next_res_offset,

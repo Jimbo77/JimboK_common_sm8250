@@ -723,6 +723,7 @@ struct bss_description {
 #endif
 	uint32_t assoc_disallowed;
 	uint32_t adaptive_11r_ap;
+	uint32_t mbo_oce_enabled_ap;
 #if defined(WLAN_SAE_SINGLE_PMK) && defined(WLAN_FEATURE_ROAM_OFFLOAD)
 	uint32_t is_single_pmk;
 #endif
@@ -2447,8 +2448,8 @@ struct sir_wifi_start_log {
  */
 struct sir_pcl_list {
 	uint32_t pcl_len;
-	uint8_t pcl_list[128];
-	uint8_t weight_list[128];
+	uint8_t pcl_list[NUM_CHANNELS];
+	uint8_t weight_list[NUM_CHANNELS];
 };
 
 /**
@@ -2464,12 +2465,12 @@ struct sir_pcl_list {
  * @weight_list: Weights assigned by policy manager
  */
 struct sir_pcl_chan_weights {
-	uint8_t pcl_list[128];
+	uint8_t pcl_list[NUM_CHANNELS];
 	uint32_t pcl_len;
-	uint8_t saved_chan_list[128];
+	uint8_t saved_chan_list[NUM_CHANNELS];
 	uint32_t saved_num_chan;
-	uint8_t weighed_valid_list[128];
-	uint8_t weight_list[128];
+	uint8_t weighed_valid_list[NUM_CHANNELS];
+	uint8_t weight_list[NUM_CHANNELS];
 };
 
 /**
@@ -3586,6 +3587,8 @@ struct sir_set_ht_vht_cfg {
 #define WIFI_INVALID_PEER_ID            (-1)
 #define WIFI_INVALID_VDEV_ID            (-1)
 #define WIFI_MAX_AC                     (4)
+#define RATE_STAT_MCS_MASK              (0xFF00)
+#define RATE_STAT_GET_MCS_INDEX(x)      (((x) & RATE_STAT_MCS_MASK) >> 8)
 
 typedef struct {
 	uint32_t paramId;
@@ -4599,11 +4602,6 @@ struct sir_sme_ext_cng_chan_req {
 	uint32_t  new_channel;
 	uint8_t   session_id;
 };
-
-#define IGNORE_NUD_FAIL                      0
-#define DISCONNECT_AFTER_NUD_FAIL            1
-#define ROAM_AFTER_NUD_FAIL                  2
-#define DISCONNECT_AFTER_ROAM_FAIL           3
 
 /**
  * struct sir_sme_ext_change_chan_ind.

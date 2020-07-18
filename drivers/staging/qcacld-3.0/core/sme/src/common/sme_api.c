@@ -849,13 +849,6 @@ void sme_update_fine_time_measurement_capab(mac_handle_t mac_handle,
 	}
 }
 
-void sme_update_nud_config(mac_handle_t mac_handle, uint8_t nud_fail_behavior)
-{
-	struct mac_context *mac = MAC_CONTEXT(mac_handle);
-
-	mac->nud_fail_behaviour = nud_fail_behavior;
-}
-
 /**
  * sme_update_neighbor_report_config() - Update CSR config for 11k params
  * @mac_handle: Pointer to MAC context
@@ -11476,7 +11469,6 @@ QDF_STATUS sme_wifi_start_logger(mac_handle_t mac_handle,
 				 struct sir_wifi_start_log start_log)
 {
 	QDF_STATUS status = QDF_STATUS_SUCCESS;
-	struct mac_context *mac   = MAC_CONTEXT(mac_handle);
 	struct scheduler_msg message = {0};
 	struct sir_wifi_start_log *req_msg;
 	uint32_t len;
@@ -11494,14 +11486,6 @@ QDF_STATUS sme_wifi_start_logger(mac_handle_t mac_handle,
 	req_msg->size = start_log.size;
 	req_msg->is_pktlog_buff_clear = start_log.is_pktlog_buff_clear;
 
-	status = sme_acquire_global_lock(&mac->sme);
-	if (status != QDF_STATUS_SUCCESS) {
-		sme_err("sme_acquire_global_lock failed(status=%d)", status);
-		qdf_mem_free(req_msg);
-		return status;
-	}
-
-	/* Serialize the req through MC thread */
 	message.bodyptr = req_msg;
 	message.type    = SIR_HAL_START_STOP_LOGGING;
 	status = scheduler_post_message(QDF_MODULE_ID_SME,
@@ -11512,7 +11496,6 @@ QDF_STATUS sme_wifi_start_logger(mac_handle_t mac_handle,
 		qdf_mem_free(req_msg);
 		status = QDF_STATUS_E_FAILURE;
 	}
-	sme_release_global_lock(&mac->sme);
 
 	return status;
 }

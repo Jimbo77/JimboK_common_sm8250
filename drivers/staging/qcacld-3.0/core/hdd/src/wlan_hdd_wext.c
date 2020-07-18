@@ -3940,7 +3940,7 @@ int wlan_hdd_update_phymode(struct hdd_adapter *adapter, int new_phymode)
 	mac_handle_t mac_handle = hdd_ctx->mac_handle;
 	bool band_24 = false, band_5g = false;
 	bool ch_bond24 = false, ch_bond5g = false;
-	struct sme_config_params *sme_config;
+	struct sme_config_params *sme_config = NULL;
 	struct csr_config_params *csr_config;
 	uint32_t chwidth = WNI_CFG_CHANNEL_BONDING_MODE_DISABLE;
 	uint8_t vhtchanwidth;
@@ -7745,8 +7745,8 @@ static int iw_get_policy_manager_ut_ops(struct hdd_context *hdd_ctx,
 
 	case WE_POLICY_MANAGER_PCL_CMD:
 	{
-		uint8_t pcl[QDF_MAX_NUM_CHAN] = {0};
-		uint8_t weight_list[QDF_MAX_NUM_CHAN] = {0};
+		uint8_t pcl[NUM_CHANNELS] = {0};
+		uint8_t weight_list[NUM_CHANNELS] = {0};
 		uint32_t pcl_len = 0, i = 0;
 
 		hdd_debug("<iwpriv wlan0 pm_pcl> is called");

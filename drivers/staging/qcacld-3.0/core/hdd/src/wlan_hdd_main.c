@@ -209,12 +209,6 @@ static struct class *class;
 static dev_t device;
 static bool hdd_loaded = false;
 
-#ifdef MULTI_IF_NAME
-#define WLAN_LOADER_NAME "boot_" MULTI_IF_NAME
-#else
-#define WLAN_LOADER_NAME "boot_wlan"
-#endif
-
 /* the Android framework expects this param even though we don't use it */
 #define BUF_LEN 20
 static char fwpath_buffer[BUF_LEN];
@@ -1868,6 +1862,9 @@ static void hdd_update_wiphy_he_cap(struct hdd_context *hdd_ctx)
 	struct ieee80211_supported_band *band_5g =
 			hdd_ctx->wiphy->bands[HDD_NL80211_BAND_5GHZ];
 	QDF_STATUS status;
+	uint8_t *phy_info_5g =
+		    hdd_ctx->iftype_data_5g->he_cap.he_cap_elem.phy_cap_info;
+	uint8_t max_fw_bw = sme_get_vht_ch_width();
 
 	status = ucfg_mlme_cfg_get_he_caps(hdd_ctx->psoc, &he_cap_cfg);
 
@@ -1887,6 +1884,15 @@ static void hdd_update_wiphy_he_cap(struct hdd_context *hdd_ctx)
 		hdd_ctx->iftype_data_5g->he_cap.has_he = he_cap_cfg.present;
 		band_5g->n_iftype_data = 1;
 		band_5g->iftype_data = hdd_ctx->iftype_data_5g;
+		if (max_fw_bw >= WNI_CFG_VHT_CHANNEL_WIDTH_80MHZ)
+			phy_info_5g[0] |=
+				IEEE80211_HE_PHY_CAP0_CHANNEL_WIDTH_SET_40MHZ_80MHZ_IN_5G;
+		if (max_fw_bw >= WNI_CFG_VHT_CHANNEL_WIDTH_160MHZ)
+			phy_info_5g[0] |=
+				IEEE80211_HE_PHY_CAP0_CHANNEL_WIDTH_SET_160MHZ_IN_5G;
+		if (max_fw_bw >= WNI_CFG_VHT_CHANNEL_WIDTH_80_PLUS_80MHZ)
+			phy_info_5g[0] |=
+			     IEEE80211_HE_PHY_CAP0_CHANNEL_WIDTH_SET_80PLUS80_MHZ_IN_5G;
 	}
 }
 #else
@@ -2327,9 +2333,12 @@ static int __hdd_mon_open(struct net_device *dev)
 	if (!ret)
 		ret = hdd_enable_monitor_mode(dev);
 
-	if (!ret)
+	if (!ret) {
+		hdd_set_current_throughput_level(hdd_ctx,
+						 PLD_BUS_WIDTH_VERY_HIGH);
 		pld_request_bus_bandwidth(hdd_ctx->parent_dev,
 					  PLD_BUS_WIDTH_VERY_HIGH);
+	}
 
 	return ret;
 }
@@ -8745,7 +8754,11 @@ void hdd_bus_bandwidth_deinit(struct hdd_context *hdd_ctx)
 {
 	hdd_enter();
 
+	/* it is expecting the timer has been stopped or not started
+	 * when coming deinit.
+	 */
 	QDF_BUG(!qdf_periodic_work_stop_sync(&hdd_ctx->bus_bw_work));
+
 	qdf_periodic_work_destroy(&hdd_ctx->bus_bw_work);
 	hdd_pm_qos_remove_request(hdd_ctx);
 	qdf_spinlock_destroy(&hdd_ctx->bus_bw_lock);
@@ -13741,6 +13754,8 @@ static int wlan_hdd_state_ctrl_param_open(struct inode *inode,
 	return 0;
 }
 
+static int hdd_driver_load(void);
+
 static void hdd_inform_wifi_off(void)
 {
 	struct hdd_context *hdd_ctx = cds_get_context(QDF_MODULE_ID_HDD);
@@ -13753,7 +13768,6 @@ static void hdd_inform_wifi_off(void)
 	ucfg_blm_wifi_off(hdd_ctx->pdev);
 }
 
-static int hdd_driver_load(void);
 static ssize_t wlan_hdd_state_ctrl_param_write(struct file *filp,
 						const char __user *user_buf,
 						size_t count,
@@ -14638,8 +14652,9 @@ static int hdd_driver_load(void)
 		hdd_err("Failed to register driver; errno:%d", errno);
 		goto pld_deinit;
 	}
-	
+
 	hdd_loaded = true;
+	hdd_debug("%s: driver loaded", WLAN_MODULE_NAME);
 
 	return 0;
 
@@ -14691,6 +14706,20 @@ static void hdd_driver_unload(void)
 	pr_info("%s: Unloading driver v%s\n", WLAN_MODULE_NAME,
 		QWLAN_VERSIONSTR);
 
+	/*
+	 * Wait for any trans to complete and then start the driver trans
+	 * for the unload. This will ensure that the driver trans proceeds only
+	 * after all trans have been completed. As a part of this trans, set
+	 * the driver load/unload flag to further ensure that any upcoming
+	 * trans are rejected via wlan_hdd_validate_context.
+	 */
+	status = osif_driver_sync_trans_start_wait(&driver_sync);
+	QDF_BUG(QDF_IS_STATUS_SUCCESS(status));
+	if (QDF_IS_STATUS_ERROR(status)) {
+		hdd_err("Unable to unload wlan; status:%u", status);
+		return;
+	}
+
 	hif_ctx = cds_get_context(QDF_MODULE_ID_HIF);
 	if (hif_ctx) {
 		/*
@@ -14711,6 +14740,12 @@ static void hdd_driver_unload(void)
 		 */
 		hdd_bus_bw_compute_timer_stop(hdd_ctx);
 	}
+
+	/*
+	 * Stop the trans before calling unregister_driver as that involves a
+	 * call to pld_remove which in itself is a psoc transaction
+	 */
+	osif_driver_sync_trans_stop(driver_sync);
 
 	/* trigger SoC remove */
 	wlan_hdd_unregister_driver();

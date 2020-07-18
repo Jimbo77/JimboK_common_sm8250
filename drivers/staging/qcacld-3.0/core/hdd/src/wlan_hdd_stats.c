@@ -40,7 +40,6 @@
 #include "wlan_cp_stats_mc_ucfg_api.h"
 #include "wlan_mlme_ucfg_api.h"
 #include "wlan_mlme_ucfg_api.h"
-#include "cdp_txrx_misc.h"
 #include "cdp_txrx_host_stats.h"
 
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 0, 0)) && !defined(WITH_BACKPORTS)
@@ -2881,7 +2880,6 @@ static int __wlan_hdd_cfg80211_stats_ext_request(struct wiphy *wiphy,
 	int ret_val;
 	QDF_STATUS status;
 	struct hdd_context *hdd_ctx = wiphy_priv(wiphy);
-	ol_txrx_soc_handle soc = cds_get_context(QDF_MODULE_ID_SOC);
 
 	hdd_enter_dev(dev);
 
@@ -2897,19 +2895,10 @@ static int __wlan_hdd_cfg80211_stats_ext_request(struct wiphy *wiphy,
 	stats_ext_req.request_data_len = data_len;
 	stats_ext_req.request_data = (void *)data;
 
-	status = cdp_request_rx_hw_stats(soc, adapter->vdev_id);
-
-	if (QDF_STATUS_SUCCESS != status) {
-		hdd_err_rl("Failed to get hw stats: %u", status);
-		ret_val = -EINVAL;
-	}
-
 	status = sme_stats_ext_request(adapter->vdev_id, &stats_ext_req);
 
-	if (QDF_STATUS_SUCCESS != status) {
-		hdd_err_rl("Failed to get fw stats: %u", status);
+	if (QDF_STATUS_SUCCESS != status)
 		ret_val = -EINVAL;
-	}
 
 	return ret_val;
 }
@@ -4993,7 +4982,7 @@ static int __wlan_hdd_cfg80211_dump_survey(struct wiphy *wiphy,
 	int status;
 	bool filled = false;
 
-	if (idx > QDF_MAX_NUM_CHAN - 1)
+	if (idx > NUM_CHANNELS - 1)
 		return -EINVAL;
 
 	hdd_ctx = WLAN_HDD_GET_CTX(adapter);
@@ -6108,6 +6097,12 @@ int wlan_hdd_get_station_stats(struct hdd_adapter *adapter)
 		tx_nss = wlan_vdev_mlme_get_nss(adapter->vdev);
 		rx_nss = wlan_vdev_mlme_get_nss(adapter->vdev);
 	}
+	/* Intersection of self and AP's NSS capability */
+	if (tx_nss > wlan_vdev_mlme_get_nss(adapter->vdev))
+		tx_nss = wlan_vdev_mlme_get_nss(adapter->vdev);
+
+	if (rx_nss > wlan_vdev_mlme_get_nss(adapter->vdev))
+		rx_nss = wlan_vdev_mlme_get_nss(adapter->vdev);
 
 	/* save class a stats to legacy location */
 	adapter->hdd_stats.class_a_stat.tx_nss = tx_nss;

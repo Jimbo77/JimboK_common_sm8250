@@ -2345,8 +2345,8 @@ static QDF_STATUS csr_prepare_scan_filter(struct mac_context *mac_ctx,
 
 	filter->num_of_channels =
 		pFilter->ChannelInfo.numOfChannels;
-	if (filter->num_of_channels > QDF_MAX_NUM_CHAN)
-		filter->num_of_channels = QDF_MAX_NUM_CHAN;
+	if (filter->num_of_channels > NUM_CHANNELS)
+		filter->num_of_channels = NUM_CHANNELS;
 	qdf_mem_copy(filter->channel_list,
 			pFilter->ChannelInfo.ChannelList,
 			filter->num_of_channels);
@@ -2432,7 +2432,7 @@ static QDF_STATUS csr_prepare_scan_filter(struct mac_context *mac_ctx,
 		   &pFilter->csrPersona, &new_mode)) {
 			status = policy_mgr_get_pcl(mac_ctx->psoc, new_mode,
 				filter->pcl_channel_list, &len,
-				filter->pcl_weight_list, QDF_MAX_NUM_CHAN);
+				filter->pcl_weight_list, NUM_CHANNELS);
 			filter->num_of_pcl_channels = (uint8_t)len;
 		}
 	}
@@ -2651,6 +2651,9 @@ static QDF_STATUS csr_fill_bss_from_scan_entry(struct mac_context *mac_ctx,
 	bss_desc->assoc_disallowed = csr_is_assoc_disallowed(mac_ctx,
 							     scan_entry);
 	bss_desc->adaptive_11r_ap = scan_entry->adaptive_11r_ap;
+
+	bss_desc->mbo_oce_enabled_ap =
+			util_scan_entry_mbo_oce(scan_entry) ? true : false;
 
 	csr_fill_single_pmk_ap_cap_from_scan_entry(bss_desc, scan_entry);
 
