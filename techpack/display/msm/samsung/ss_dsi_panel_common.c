@@ -6353,6 +6353,7 @@ int ss_brightness_dcs(struct samsung_display_driver_data *vdd, int level, int ba
 
 	/* check BRR_STOP_MODE before bl_lock to avoid deadlock and BRR_OFF
 	 *  wait-timeout, with ss_panel_vrr_switch() funciton.
+	 * TODO: compare candela, instead of bl_level.
 	 */
 	if (vdd->vrr.is_support_brr &&
 			level != USE_CURRENT_BL_LEVEL &&
@@ -6363,6 +6364,7 @@ int ss_brightness_dcs(struct samsung_display_driver_data *vdd, int level, int ba
 			int max_cnt = 100; /* 100ms */
 
 			vdd->vrr.brr_mode = BRR_STOP_MODE;
+			vdd->vrr.brr_bl_level = level;
 			mutex_unlock(&vdd->vrr.brr_lock);
 
 			LCD_INFO("VRR: new brightness(%d->%d), set to BRR_STOP_MODE\n",
@@ -6393,8 +6395,10 @@ int ss_brightness_dcs(struct samsung_display_driver_data *vdd, int level, int ba
 
 		if ((vdd->br_info.common_br.finger_mask_hbm_on) && (backlight_origin == BACKLIGHT_NORMAL)) {/* finger mask hbm on & bl update from normal */
 			backup_acl = vdd->br_info.acl_status;
+
 			if (level != USE_CURRENT_BL_LEVEL)
 				backup_bl_level = level;
+
 			LCD_INFO("[FINGER_MASK]BACKLIGHT_NORMAL save backup_acl = %d, backup_level = %d, vdd->br_info.common_br.bl_level=%d\n", backup_acl, backup_bl_level, vdd->br_info.common_br.bl_level);
 			goto skip_bl_update;
 		}
@@ -7266,19 +7270,6 @@ void ss_panel_vrr_switch(struct vrr_info *vrr)
 		goto brr_done;
 	}
 
-	/* Set max sde core clock to prevent screen noise due to
-	 * unbalanced clock between MDP and panel
-	 * To prevent sde clk setting failure, enable sde core clock.
-	 */
-	pm_runtime_get_sync(ddev->dev);
-	ret = ss_set_max_sde_core_clk(ddev);
-	if (ret) {
-		LCD_ERR("fail to set max sde core clock..(%d)\n", ret);
-		SS_XLOG(ret, 0xebad);
-	}
-	pm_runtime_put_sync(ddev->dev);
-
-
 	mutex_lock(&vrr->brr_lock);
 	vrr->brr_mode = ss_get_brr_mode(vdd);
 	mutex_unlock(&vrr->brr_lock);
@@ -7349,7 +7340,10 @@ void ss_panel_vrr_switch(struct vrr_info *vrr)
 		 * In BRR mode, SOT_HS mode is not changed.
 		 */
 		vrr->cur_refresh_rate = fps_brr;
-		ss_brightness_dcs(vdd, USE_CURRENT_BL_LEVEL, BACKLIGHT_NORMAL);
+		if(vdd->br_info.common_br.finger_mask_hbm_on)
+			ss_brightness_dcs(vdd, 0, BACKLIGHT_FINGERMASK_ON_SUSTAIN);
+		else
+			ss_brightness_dcs(vdd, USE_CURRENT_BL_LEVEL, BACKLIGHT_NORMAL);
 
 		if (brr->delay_frame_cnt <= 0) {
 			LCD_ERR("VRR: delay_frame_cnt: %d, set default value 4\n", brr->delay_frame_cnt);
@@ -7372,7 +7366,15 @@ void ss_panel_vrr_switch(struct vrr_info *vrr)
 				vrr->cur_refresh_rate = adjusted_rr;
 				vrr->cur_sot_hs_mode = adjusted_hs;
 
-				LCD_INFO("VRR: stop BRR\n");
+				LCD_INFO("VRR: stop BRR (bl: %d)\n", vrr->brr_bl_level);
+
+				/* update current VRR mode before restore
+				 * SDE core clock to prevent screen noise
+				 */
+				if(vdd->br_info.common_br.finger_mask_hbm_on)
+					ss_brightness_dcs(vdd, 0, BACKLIGHT_FINGERMASK_ON_SUSTAIN);
+				else
+					ss_brightness_dcs(vdd, vrr->brr_bl_level, BACKLIGHT_NORMAL);
 
 				goto brr_done;
 			}
@@ -7416,9 +7418,7 @@ void ss_panel_vrr_switch(struct vrr_info *vrr)
 
 brr_done:
 
-	/* TE modulation
-	 *
-	 */
+	/* TE modulation */
 	if (vrr->support_te_mod && vdd->panel_func.samsung_vrr_set_te_mod) {
 		vdd->panel_func.samsung_vrr_set_te_mod(vdd,
 						vrr->cur_refresh_rate,
@@ -7426,16 +7426,49 @@ brr_done:
 		SS_XLOG(vrr->te_mod_on, vrr->te_mod_divider, vrr->te_mod_cnt);
 	}
 
-	/* Restore to normal sde core clock boosted up to max mdp clock during VRR
-	 * To prevent sde clk setting failure, enable sde core clock.
+	/* Restore to normal sde core clock boosted up to max mdp clock during VRR.
+	 * In below case, current VRR mode and adjusting target VRR mode are different,
+	 * and should keep maximum SDE core clock to prevent screen noise.
+	 *
+	 * 1) DISP thread#1: get 60HS -> 120HS VRR change request.
+	 *                   Request SDE core clock to 200Mhz.
+	 * 2) VRR thread#2:  start 60HS -> 120HS BRR which takes hundreds miliseconds.
+	 *                   Set maximum SDE core clock (460Mhz)
+	 * 3) DISP thread#1: get 120HS -> 60HS VRR change request.
+	 *                   Request SDE core clock to 150Mhz.
+	 * 4) VRR thread#2:  finish 60HS -> 120HS BRR.
+	 *                   Restore SDE core clock to 150Mhz for 60HS while panel works at 120hz..
+	 * 		     It causes screen noise...
+	 *                   In this case, current VRR mode and adjusting target VRR mode are different!
+	 * 5) VRR thread#2:  start 120HS -> 60HS BRR. Set maximum SDE core clock, and fix screen noise.
+	 *                   After hundreds miliseconds, it finishes BRR,
+	 *                   and restore SDE core clock to 150Mhz while panel works at 60hz.
+	 *                   No more screen noise.
 	 */
-	pm_runtime_get_sync(ddev->dev);
-	ret = ss_set_normal_sde_core_clk(ddev);
-	if (ret) {
-		LCD_ERR("fail to set normal sde core clock..(%d)\n", ret);
-		SS_XLOG(ret, 0xebad);
+	if (vrr->cur_refresh_rate == vrr->adjusted_refresh_rate &&
+			vrr->cur_sot_hs_mode == vrr->adjusted_sot_hs_mode) {
+		/* SDE core clock will be applied to system by calling ss_set_normal_sde_core_clk().
+		 * But, panel's new refresh rate will be applied in next TE after sending VRR commands.
+		 * So, delay one frame before restore SDE core clock.
+		 */
+		int min_rr = min(cur_rr, adjusted_rr);
+		int interval_us = (1000000 / min_rr) + 1000; /* 1ms dummy */
+
+		LCD_INFO("delay 1frame(min_rr: %d, %dus)\n", min_rr, interval_us);
+		usleep_range(interval_us, interval_us);
+
+		ret = ss_set_normal_sde_core_clk(ddev);
+		if (ret) {
+			LCD_ERR("fail to set normal sde core clock..(%d)\n", ret);
+			SS_XLOG(ret, 0xbad2);
+		}
+	} else {
+		LCD_INFO("consecutive VRR req, keep max sde clk (cur: %d%s, adj: %d%s)\n",
+				vrr->cur_refresh_rate,
+				vrr->cur_sot_hs_mode ? "HS" : "NS",
+				vrr->adjusted_refresh_rate,
+				vrr->adjusted_sot_hs_mode ? "HS" : "NS");
 	}
-	pm_runtime_put_sync(ddev->dev);
 
 	/* TODO: need atomic read?? for delayed_perf_normal??? -> No.
 	 * There could be race condition with sysfs_sde_core_perf_mode_write(),
