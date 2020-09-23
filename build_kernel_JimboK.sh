@@ -1,5 +1,7 @@
 #!/bin/bash -x
 
+rm -rf out
+
 ccache -M 4.5
 
 export ARCH=arm64
