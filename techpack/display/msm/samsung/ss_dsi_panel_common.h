@@ -1489,6 +1489,7 @@ struct vrr_info {
 	/* bridge refresh rate */
 	enum SS_BRR_MODE brr_mode;
 	bool brr_rewind_on; /* rewind BRR in case of new VRR set back to BRR start FPS */
+	int brr_bl_level;	/* brightness level causing BRR stopa */
 
 	struct workqueue_struct *vrr_workqueue;
 	struct work_struct vrr_work;

@@ -943,8 +943,11 @@ void sde_core_perf_crtc_update(struct drm_crtc *crtc,
 			 * During VRR transition, keep max SDE core clock.
 			 */
 			struct samsung_display_driver_data *vdd = ss_get_vdd(PRIMARY_DISPLAY_NDX);
-			if (vdd->vrr.support_vrr_based_bl && vdd->vrr.running_vrr) {
-				SDE_INFO("VRR: keep max SDE core clock (%lld -> %lld hz)\n",
+			if (vdd->vrr.support_vrr_based_bl &&
+					(vdd->vrr.running_vrr_mdp || vdd->vrr.running_vrr)) {
+				SDE_INFO("During VRR (%d|%d): keep max SDE core clock (%lld -> %lld hz)\n",
+						vdd->vrr.running_vrr_mdp,
+						vdd->vrr.running_vrr,
 						clk_rate, kms->perf.max_core_clk_rate);
 				clk_rate = kms->perf.max_core_clk_rate;
 			}
@@ -1205,7 +1208,7 @@ int ss_set_max_sde_core_clk(struct drm_device *ddev)
 {
 	struct sde_kms *sde_kms;
 	struct sde_core_perf *perf;
-	int ret;
+	int ret = 0;
 
 	if (!ddev || !ddev_to_msm_kms(ddev)) {
 		SDE_ERROR("invalid ddev (%d)\n", ddev ? 1 : 0);
@@ -1219,14 +1222,14 @@ int ss_set_max_sde_core_clk(struct drm_device *ddev)
 		return -ENODEV;
 	}
 
+	/* To prevent sde clk setting failure, enable sde core clock. */
+	pm_runtime_get_sync(ddev->dev);
 	ret = sde_power_clk_set_rate(perf->phandle,
 			perf->clk_name, perf->max_core_clk_rate);
-	if (ret) {
+	if (ret)
 		SDE_ERROR("failed to set %s clock rate %llu, ret: %d\n",
-				perf->clk_name,
-				perf->max_core_clk_rate, ret);
-		return ret;
-	}
+				perf->clk_name, perf->max_core_clk_rate, ret);
+	pm_runtime_put_sync(ddev->dev);
 
 	SDE_INFO("set max core clk %lld hz\n", perf->max_core_clk_rate);
 
@@ -1238,7 +1241,7 @@ int ss_set_normal_sde_core_clk(struct drm_device *ddev)
 	struct sde_kms *sde_kms;
 	struct sde_core_perf *perf;
 	u64 clk_rate = 0;
-	int ret;
+	int ret = 0;
 
 	if (!ddev || !ddev_to_msm_kms(ddev)) {
 		SDE_ERROR("invalid ddev (%d)\n", ddev ? 1 : 0);
@@ -1252,20 +1255,18 @@ int ss_set_normal_sde_core_clk(struct drm_device *ddev)
 		return -ENODEV;
 	}
 
+	/* To prevent sde clk setting failure, enable sde core clock. */
+	pm_runtime_get_sync(ddev->dev);
 	clk_rate = _sde_core_perf_get_core_clk_rate(sde_kms);
-
-	ret = sde_power_clk_set_rate(perf->phandle,
-			perf->clk_name, clk_rate);
-	if (ret) {
+	ret = sde_power_clk_set_rate(perf->phandle, perf->clk_name, clk_rate);
+	if (ret)
 		SDE_ERROR("failed to set %s clock rate %llu, ret: %d\n",
-				perf->clk_name,
-				perf->max_core_clk_rate, ret);
-		return ret;
-	}
+				perf->clk_name, clk_rate, ret);
+	pm_runtime_put_sync(ddev->dev);
 
 	SDE_INFO("set normal core clk %llu hz\n", clk_rate);
 
-	return 0;
+	return ret;
 }
 
 static ssize_t sysfs_sde_core_perf_mode_read(struct device *dev,

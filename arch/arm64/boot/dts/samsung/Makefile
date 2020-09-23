@@ -25,7 +25,8 @@ $(eval $(call sec_dtbo_build, \
 
 endif
 
-dts-dirs += z3q
+#dts-dirs += z3q
+
 
 
 always          := $(dtb-y)
