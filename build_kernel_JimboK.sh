@@ -35,5 +35,5 @@ make -j$(nproc) O=$(pwd)/out $KERNEL_MAKE_ENV CROSS_COMPILE=$BUILD_CROSS_COMPILE
 cp $(pwd)/out/arch/$ARCH/boot/Image $(pwd)/out/Image
 cat ${DTS_DIR}/vendor/qcom/*.dtb > $(pwd)/out/dtb.img
 
-sudo cp $(pwd)/out/Image /media/sf_Kernel_Test
-sudo cp $(pwd)/out/dtb.img /media/sf_Kernel_Test
+#sudo cp $(pwd)/out/Image /media/sf_Kernel_Test
+#sudo cp $(pwd)/out/dtb.img /media/sf_Kernel_Test
