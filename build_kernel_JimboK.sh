@@ -2,7 +2,7 @@
 
 rm -rf out
 
-ccache -M 4.5
+#ccache -M 4.5
 
 export ARCH=arm64
 
