@@ -12,9 +12,8 @@ SEC_KONA_BASE_DTB := $(QCOM_DTB)/kona.dtb $(QCOM_DTB)/kona-v2.dtb $(QCOM_DTB)/ko
 
 ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
 
-SEC_C2Q_USA_DTBO := kona-sec-c2q-usa-overlay-r00.dtbo kona-sec-c2q-usa-overlay-r01.dtbo kona-sec-c2q-usa-overlay-r02.dtbo kona-sec-c2q-usa-overlay-r03.dtbo kona-sec-c2q-usa-overlay-r04.dtbo kona-sec-c2q-usa-overlay-r06.dtbo kona-sec-c2q-usa-overlay-r07.dtbo kona-sec-c2q-usa-overlay-r08.dtbo kona-sec-c2q-usa-overlay-r09.dtbo kona-sec-c2q-usa-overlay-r10.dtbo
+SEC_C2Q_KOR_DTBO := kona-sec-c2q-kor-overlay-r00.dtbo kona-sec-c2q-kor-overlay-r01.dtbo kona-sec-c2q-kor-overlay-r04.dtbo kona-sec-c2q-kor-overlay-r06.dtbo kona-sec-c2q-kor-overlay-r07.dtbo kona-sec-c2q-kor-overlay-r08.dtbo kona-sec-c2q-kor-overlay-r09.dtbo kona-sec-c2q-kor-overlay-r10.dtbo
 
-$(eval $(call sec_dtbo_build, $(SEC_C2Q_USA_DTBO),$(CONFIG_MACH_C2Q_USA_SINGLE),$(SEC_KONA_BASE_DTB)))
+$(eval $(call sec_dtbo_build, $(SEC_C2Q_KOR_DTBO),$(CONFIG_MACH_C2Q_KOR_SINGLE),$(SEC_KONA_BASE_DTB)))
 
 endif
-
