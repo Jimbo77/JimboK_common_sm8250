@@ -472,6 +472,17 @@ static bool dsi_bridge_mode_fixup(struct drm_bridge *bridge,
 
 				dsi_mode.dsi_mode_flags |= DSI_MODE_FLAG_DMS;
 
+				/* Set max sde core clock to prevent screen noise due to
+				 * unbalanced clock between MDP and panel
+				 * SDE core clock will be restored in ss_panel_vrr_switch()
+				 * after finish VRR change.
+				 */
+				rc = ss_set_max_sde_core_clk(display->drm_dev);
+				if (rc) {
+					LCD_ERR("fail to set max sde core clock..(%d)\n", rc);
+					SS_XLOG(rc, 0xebad);
+				}
+
 				SS_XLOG(cur_mode->vrefresh, cur_sot_hs, adjusted_mode->vrefresh, adjusted_sot_hs);
 				LCD_INFO("DMS: switch mode %s(%dx%d@%d%s) -> %s(%dx%d@%d%s)\n",
 					cur_mode->name,
