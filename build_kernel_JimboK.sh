@@ -1,5 +1,8 @@
 #!/bin/bash -x
 
+VARIANT=$1
+VERSION=$2
+
 rm -rf out
 
 #ccache -M 4.5
@@ -17,7 +20,7 @@ BUILD_CROSS_COMPILE=$(pwd)/toolchains/aarch64-linux-android-4.9/bin/aarch64-linu
 KERNEL_LLVM_BIN=clang
 CLANG_TRIPLE=aarch64-linux-gnu-
 
-KERNEL_MAKE_ENV="DTC_EXT=$(pwd)/tools/dtc CONFIG_BUILD_ARM64_DT_OVERLAY=y"
+KERNEL_MAKE_ENV="DTC_EXT=$(pwd)/tools/dtc CONFIG_BUILD_ARM64_DT_OVERLAY=y VARIANT_DEFCONFIG=vendor/variant_$1_defconfig"
 
 # If not cleaning the tree between builds, the following command will be
 # required on 2nd and subsequent builds to prevent a huge slowdown of the
@@ -28,17 +31,17 @@ KERNEL_MAKE_ENV="DTC_EXT=$(pwd)/tools/dtc CONFIG_BUILD_ARM64_DT_OVERLAY=y"
 
 #make $KERNEL_MAKE_ENV CROSS_COMPILE=$BUILD_CROSS_COMPILE REAL_CC=$KERNEL_LLVM_BIN CLANG_TRIPLE=$CLANG_TRIPLE CFP_CC=$KERNEL_LLVM_BIN vendor/z3q_kor_singlex_defconfig
 
-make O=$(pwd)/out $KERNEL_MAKE_ENV CROSS_COMPILE=$BUILD_CROSS_COMPILE REAL_CC=$KERNEL_LLVM_BIN CLANG_TRIPLE=$CLANG_TRIPLE CFP_CC=$KERNEL_LLVM_BIN vendor/x1q_chn_openx_defconfig
+make O=$(pwd)/out $KERNEL_MAKE_ENV CROSS_COMPILE=$BUILD_CROSS_COMPILE REAL_CC=$KERNEL_LLVM_BIN CLANG_TRIPLE=$CLANG_TRIPLE CFP_CC=$KERNEL_LLVM_BIN vendor/jimbok_defconfig
 
 make -j$(nproc) O=$(pwd)/out $KERNEL_MAKE_ENV CROSS_COMPILE=$BUILD_CROSS_COMPILE REAL_CC=$KERNEL_LLVM_BIN CLANG_TRIPLE=$CLANG_TRIPLE CFP_CC=$KERNEL_LLVM_BIN
 
 cp $(pwd)/out/arch/$ARCH/boot/Image $(pwd)/out/Image
 cat ${DTS_DIR}/vendor/qcom/*.dtb > $(pwd)/out/dtb.img
 
-mv $(pwd)/out/Image $(pwd)/out/Image-JimboK_x1q
-mv $(pwd)/out/dtb.img $(pwd)/out/dtb-JimboK_x1q.img
+mv $(pwd)/out/Image $(pwd)/out/Image-JimboK_$1
+mv $(pwd)/out/dtb.img $(pwd)/out/dtb-JimboK_$1.img
 
-cp $(pwd)/out/Image-JimboK_x1q ~/build/mkbootimg-master2
-cp $(pwd)/out/dtb-JimboK_x1q.img ~/build/mkbootimg-master2
+cp $(pwd)/out/Image-JimboK_$1 ~/build/mkbootimg-master2
+cp $(pwd)/out/dtb-JimboK_$1.img ~/build/mkbootimg-master2
 
-~/build/mkbootimg-master2/make_boot_x1q.sh 1.2.0-x1q
+~/build/mkbootimg-master2/make_boot_$1.sh $2-$1
