@@ -35,13 +35,13 @@ make O=$(pwd)/out $KERNEL_MAKE_ENV CROSS_COMPILE=$BUILD_CROSS_COMPILE REAL_CC=$K
 
 make -j$(nproc) O=$(pwd)/out $KERNEL_MAKE_ENV CROSS_COMPILE=$BUILD_CROSS_COMPILE REAL_CC=$KERNEL_LLVM_BIN CLANG_TRIPLE=$CLANG_TRIPLE CFP_CC=$KERNEL_LLVM_BIN
 
-cp $(pwd)/out/arch/$ARCH/boot/Image $(pwd)/out/Image
+cp $(pwd)/out/arch/$ARCH/boot/Image.gz $(pwd)/out/Image.gz
 cat ${DTS_DIR}/vendor/qcom/*.dtb > $(pwd)/out/dtb.img
 
-mv $(pwd)/out/Image $(pwd)/out/Image-JimboK_$1
+mv $(pwd)/out/Image.gz $(pwd)/out/Image-JimboK_$1.gz
 mv $(pwd)/out/dtb.img $(pwd)/out/dtb-JimboK_$1.img
 
-cp $(pwd)/out/Image-JimboK_$1 ~/build/mkbootimg-master2
+cp $(pwd)/out/Image-JimboK_$1.gz ~/build/mkbootimg-master2
 cp $(pwd)/out/dtb-JimboK_$1.img ~/build/mkbootimg-master2
 
 ~/build/mkbootimg-master2/make_boot_$1.sh $2-$1
