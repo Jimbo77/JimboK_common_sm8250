@@ -423,7 +423,7 @@ LINUXINCLUDE    := \
 KBUILD_AFLAGS   := -D__ASSEMBLY__
 KBUILD_CFLAGS   := -Wall -Wundef -Wno-trigraphs \
 		   -fno-strict-aliasing -fno-common -fshort-wchar \
-		   -Werror-implicit-function-declaration \
+		   -Wno-implicit-function-declaration \
 		   -Wno-format-security \
 		   -Wno-misleading-indentation \
 		   -Wno-void-pointer-to-enum-cast \
@@ -752,6 +752,7 @@ KBUILD_CFLAGS += $(call cc-option, -mllvm -disable-struct-const-merge)
 
 # Quiet clang warning: comparison of unsigned expression < 0 is always false
 KBUILD_CFLAGS += $(call cc-disable-warning, tautological-compare)
+KBUILD_CFLAGS += $(call cc-disable-warning, constant-logical-operand)
 # CLANG uses a _MergedGlobals as optimization, but this breaks modpost, as the
 # source of a reference will be _MergedGlobals and not on of the whitelisted names.
 # See modpost pattern 2
