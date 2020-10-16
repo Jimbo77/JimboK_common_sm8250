@@ -1,7 +1,5 @@
 #!/bin/bash -x
 
-cd ~/build/TestSam/sm8250
-
 ./build_kernel_JimboK.sh z3q 1.4.0
 
 sleep 10
