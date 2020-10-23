@@ -20,6 +20,10 @@ sleep 10
 
 ./build_kernel_JimboK.sh c2q $1
 
+sleep 10
+
+./build_kernel_JimboK.sh r8q $1
+
 rm -rf out
 
 make mrproper
