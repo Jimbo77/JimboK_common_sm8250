@@ -1648,7 +1648,7 @@ static int cam_ife_csid_enable_csi2(
 	struct cam_hw_soc_info                     *soc_info;
 	struct cam_ife_csid_cid_data               *cid_data;
 	uint32_t val = 0;
-#if defined(CONFIG_SEC_BLOOMXQ_PROJECT) || defined(CONFIG_SEC_F2Q_PROJECT)
+#if defined(CONFIG_SEC_BLOOMXQ_PROJECT) || defined(CONFIG_SEC_F2Q_PROJECT) || defined(CONFIG_SEC_VICTORY_PROJECT)
 	uint32_t val2, val3;
 #endif
 
@@ -1704,7 +1704,7 @@ static int cam_ife_csid_enable_csi2(
 		}
 	}
 
-#if defined(CONFIG_SEC_BLOOMXQ_PROJECT) || defined(CONFIG_SEC_F2Q_PROJECT)
+#if defined(CONFIG_SEC_BLOOMXQ_PROJECT) || defined(CONFIG_SEC_F2Q_PROJECT) || defined(CONFIG_SEC_VICTORY_PROJECT)
 	/* after configuring the csi rx,  reset hw once */
 	rc = cam_ife_csid_reset_regs(csid_hw, true);
 	if (rc < 0) {
@@ -3619,7 +3619,7 @@ STATIC int cam_ife_csid_init_hw(void *hw_priv,
 		break;
 	}
 
-#if defined(CONFIG_SEC_BLOOMXQ_PROJECT) || defined(CONFIG_SEC_F2Q_PROJECT)
+#if defined(CONFIG_SEC_BLOOMXQ_PROJECT) || defined(CONFIG_SEC_F2Q_PROJECT) || defined(CONFIG_SEC_VICTORY_PROJECT)
 	/* csid hw reset done after configuring the csi2  */
 	if (res->res_type != CAM_ISP_RESOURCE_CID) {
 		rc = cam_ife_csid_reset_regs(csid_hw, true);

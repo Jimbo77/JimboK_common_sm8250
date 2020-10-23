@@ -2003,8 +2003,6 @@ static int current_may_throttle(void)
 		bdi_write_congested(current->backing_dev_info);
 }
 
-static inline bool need_memory_boosting(struct pglist_data *pgdat);
-
 /*
  * shrink_inactive_list() is a helper for shrink_node().  It returns the number
  * of reclaimed pages
@@ -2023,8 +2021,6 @@ shrink_inactive_list(unsigned long nr_to_scan, struct lruvec *lruvec,
 	struct pglist_data *pgdat = lruvec_pgdat(lruvec);
 	struct zone_reclaim_stat *reclaim_stat = &lruvec->reclaim_stat;
 	bool stalled = false;
-	bool force_reclaim = false;
-	enum ttu_flags ttu = 0;
 
 	while (unlikely(too_many_isolated(pgdat, file, sc))) {
 		if (stalled)
@@ -2068,12 +2064,8 @@ shrink_inactive_list(unsigned long nr_to_scan, struct lruvec *lruvec,
 	if (nr_taken == 0)
 		return 0;
 
-	if (need_memory_boosting(pgdat)) {
-		force_reclaim = true;
-		ttu |= TTU_IGNORE_ACCESS;
-	}
-	nr_reclaimed = shrink_page_list(&page_list, pgdat, sc, ttu,
-				&stat, force_reclaim);
+	nr_reclaimed = shrink_page_list(&page_list, pgdat, sc, 0,
+				&stat, false);
 
 	spin_lock_irq(&pgdat->lru_lock);
 
@@ -2396,7 +2388,6 @@ enum mem_boost {
 };
 static int mem_boost_mode = NO_BOOST;
 static unsigned long last_mode_change;
-static bool memory_boosting_disabled = false;
 static bool am_app_launch = false;
 
 #define MEM_BOOST_MAX_TIME (5 * HZ) /* 5 sec */
@@ -2440,31 +2431,6 @@ int am_app_launch_notifier_register(struct notifier_block *nb)
 int am_app_launch_notifier_unregister(struct notifier_block *nb)
 {
 	return  atomic_notifier_chain_unregister(&am_app_launch_notifier, nb);
-}
-
-static ssize_t disable_mem_boost_show(struct kobject *kobj,
-				    struct kobj_attribute *attr, char *buf)
-{
-	int ret;
-
-	ret = memory_boosting_disabled ? 1 : 0;
-	return sprintf(buf, "%d\n", ret);
-}
-
-static ssize_t disable_mem_boost_store(struct kobject *kobj,
-				     struct kobj_attribute *attr,
-				     const char *buf, size_t count)
-{
-	int mode;
-	int err;
-
-	err = kstrtoint(buf, 10, &mode);
-	if (err || (mode != 0 && mode != 1))
-		return -EINVAL;
-
-	memory_boosting_disabled = mode ? true : false;
-
-	return count;
 }
 
 static ssize_t am_app_launch_show(struct kobject *kobj,
@@ -2520,12 +2486,10 @@ static ssize_t am_app_launch_store(struct kobject *kobj,
 	static struct kobj_attribute _name##_attr = \
 		__ATTR(_name, 0644, _name##_show, _name##_store)
 MEM_BOOST_ATTR(mem_boost_mode);
-MEM_BOOST_ATTR(disable_mem_boost);
 MEM_BOOST_ATTR(am_app_launch);
 
 static struct attribute *vmscan_attrs[] = {
 	&mem_boost_mode_attr.attr,
-	&disable_mem_boost_attr.attr,
 	&am_app_launch_attr.attr,
 	NULL,
 };
@@ -2563,9 +2527,6 @@ static inline bool need_memory_boosting(struct pglist_data *pgdat)
 	if (time_after(jiffies, last_mode_change + MEM_BOOST_MAX_TIME) ||
 			pgdatfile < MEM_BOOST_THRESHOLD)
 		mem_boost_mode = NO_BOOST;
-
-	if (memory_boosting_disabled)
-		return false;
 
 	switch (mem_boost_mode) {
 	case BOOST_KILL:

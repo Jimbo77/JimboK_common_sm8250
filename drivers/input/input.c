@@ -454,8 +454,8 @@ DECLARE_STATE_FUNC(idle)
 		int i;
 		int max_size = 0;
 
-		pr_booster(" %s, State : IDLE, event(%d), idx : %d\n",
-			glGage, input_booster_event, ib_idx);
+		pr_booster(" %s, State : IDLE, event(%d), idx : %d, mt_ev : %d\n",
+			glGage, input_booster_event, ib_idx, _this->multi_events);
 
 		_this->index = 0;
 		ib_idx = _this->index;
@@ -501,8 +501,8 @@ DECLARE_STATE_FUNC(press)
 	glGage = TAILGAGE;
 
 	if (input_booster_event == BOOSTER_OFF) {
-		pr_booster(" %s, State : PRESS, idx : %d, time : %d\n",
-			glGage, idx, work_time);
+		pr_booster(" %s, State : PRESS, idx : %d, time : %d, mt_ev : %d\n",
+			glGage, idx, work_time, _this->multi_events);
 
 		/*
 		 * Currently two timeout_works are same.
@@ -550,8 +550,7 @@ DECLARE_STATE_FUNC(press)
 				msecs_to_jiffies(pre_work_time));
 		}
 		_this->index++;
-		_this->multi_events =
-			(_this->multi_events > 0) ? 0 : _this->multi_events;
+
 		CHANGE_STATE_TO(idle);
 
 	} else if (input_booster_event == BOOSTER_ON) {
@@ -564,8 +563,8 @@ DECLARE_STATE_FUNC(press)
 			schedule_delayed_work(pre_dw,
 				msecs_to_jiffies(pre_work_time));
 		} else {
-			pr_booster(" %s, State : Press  idx(%d), time(%d)\n",
-				glGage, idx, work_time);
+			pr_booster(" %s, State : Press  idx(%d), time(%d), mt_ev(%d)\n",
+				glGage, idx, work_time, _this->multi_events);
 		}
 	}
 }
@@ -633,7 +632,7 @@ int chk_boost_on_off(struct input_dev *dev, int idx, int dev_type)
  * ret_val : Booster_ON : 1, Booster_OFF : 0.
  */
 
-int get_device_type(struct input_dev *dev)
+int get_device_type(struct input_dev *dev, int *start_index, int *isSynced)
 {
 	int i;
 	int ret_val = -1;
@@ -645,19 +644,17 @@ int get_device_type(struct input_dev *dev)
 	/* Initializing device type before finding the proper device type. */
 	dev->device_type = dev_type;
 
-	for (i = 0; i < dev->prev_num_vals && i < MAX_EVENTS; i++) {
+	for (i = *start_index; i < dev->prev_num_vals && i < MAX_EVENTS; i++) {
 
 		pr_booster(" %s Type : %d, Code : %d, Value : %d\n",
 			"|| Input Data ||", dev->vals[i].type,
 			dev->vals[i].code, dev->vals[i].value);
 
-		if (dev_type != NONE_TYPE_DEVICE &&
-			dev_type != TOUCH &&
-			dev_type != MULTI_TOUCH) {
-
+		if (dev_type != NONE_TYPE_DEVICE) {
 			pr_booster("Dev type Find(%d), enable(%d)\n",
 				dev_type, ret_val);
 			dev->device_type = dev_type;
+			*start_index = i;
 
 			return ret_val;
 		}
@@ -747,6 +744,8 @@ int get_device_type(struct input_dev *dev)
 		}
 	}
 	dev->device_type = dev_type;
+
+	*isSynced = 1;
 	return ret_val;
 }
 
@@ -754,6 +753,8 @@ int get_device_type(struct input_dev *dev)
 void input_booster(struct input_dev *dev)
 {
 	int dev_type = 0;
+	int isSynced = 0;
+	int start_index = 0;
 	struct t_input_booster *ib;
 	struct t_ib_dev_tree_gender *ib_dt;
 
@@ -762,33 +763,41 @@ void input_booster(struct input_dev *dev)
 		return;
 	}
 
-	int enable = get_device_type(dev);
+	while (isSynced == 0) {
+		int enable = get_device_type(dev, &start_index, &isSynced);
+		if (enable < 0)
+			return;
 
-	dev_type = dev->device_type;
-
-	if (dev_type <= NONE_TYPE_DEVICE ||
-		dev_type >= MAX_BOOSTER_CNT ||
-		enable < 0){
-		return;
-	}
-
-	ib = ib_infos[dev_type].input_booster;
-	ib_dt = ib_infos[dev_type].input_booster_dt;
-
-	pr_booster("%s EVENT - %s\n",
-				ib_dt->pDT->label,
-				(enable) ? "PRESS" : "RELEASE");
-
-	if (ib_dt->level > 0) {
-		ib->event_type = enable;
-		if (enable == BOOSTER_ON) {
-			ib->level = -1;
-			ib->multi_events++;
-		} else {
-			ib->multi_events--;
+		dev_type = dev->device_type;
+		if (dev_type <= NONE_TYPE_DEVICE ||
+			dev_type >= MAX_BOOSTER_CNT) {
+			return;
 		}
 
-		schedule_work(&(ib->input_booster_set_booster_work));
+		ib = ib_infos[dev_type].input_booster;
+		ib_dt = ib_infos[dev_type].input_booster_dt;
+		if (ib_dt->level > 0) {
+			ib->event_type = enable;
+			if (enable == BOOSTER_ON) {
+				ib->level = -1;
+				ib->multi_events++;
+			} else {
+				if (ib->event_type == MULTI_TOUCH)
+					ib->multi_events = 0;
+
+				if (ib->multi_events > 0)
+					ib->multi_events--;
+				else
+					ib->multi_events = 0;
+			}
+
+			pr_booster("%s EVENT - %s, MT_EV(%d)\n",
+					ib_dt->pDT->label,
+					(enable) ? "PRESS" : "RELEASE",
+					ib->multi_events);
+
+			schedule_work(&(ib->input_booster_set_booster_work));
+		}
 	}
 }
 

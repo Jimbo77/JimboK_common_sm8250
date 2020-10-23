@@ -1859,7 +1859,7 @@ void wlan_ipa_uc_bw_monitor(struct wlan_ipa_priv *ipa_ctx, bool stop)
 }
 #endif
 
- /**
+/**
  * wlan_ipa_send_msg() - Allocate and send message to IPA
  * @net_dev: Interface net device
  * @type: event enum of type ipa_wlan_event
@@ -1898,7 +1898,6 @@ static QDF_STATUS wlan_ipa_send_msg(qdf_netdev_t net_dev,
 
 	return QDF_STATUS_SUCCESS;
 }
-
 
 /**
  * __wlan_ipa_wlan_evt() - IPA event handler
@@ -2073,7 +2072,6 @@ static QDF_STATUS __wlan_ipa_wlan_evt(qdf_netdev_t net_dev, uint8_t device_mode,
 					ipa_ctx, net_dev, QDF_STA_MODE);
 			if (iface_ctx)
 				wlan_ipa_cleanup_iface(iface_ctx);
-
 			status = wlan_ipa_send_msg(net_dev,
 						   QDF_IPA_STA_DISCONNECT,
 						   mac_addr);
