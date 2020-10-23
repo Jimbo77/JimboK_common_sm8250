@@ -91,10 +91,10 @@ static struct __qdf_device g_qdf_ctx;
 static uint8_t cds_multicast_logging;
 
 struct cds_hang_event_fixed_param {
-	uint32_t tlv_header;
-	uint32_t recovery_reason;
+	uint16_t tlv_header;
+	uint8_t recovery_reason;
 	char driver_version[11];
-	char hang_event_version[3];
+	char hang_event_version;
 } qdf_packed;
 
 #ifdef QCA_WIFI_QCA8074
@@ -405,6 +405,8 @@ static void cds_cdp_cfg_attach(struct wlan_objmgr_psoc *psoc)
 		cfg_get(psoc, CFG_DP_NAN_TCP_UDP_CKSUM_OFFLOAD);
 	cdp_cfg.p2p_ip_tcp_udp_checksum_offload =
 		cfg_get(psoc, CFG_DP_P2P_TCP_UDP_CKSUM_OFFLOAD);
+	cdp_cfg.legacy_mode_csum_disable =
+		cfg_get(psoc, CFG_DP_LEGACY_MODE_CSUM_DISABLE);
 	cdp_cfg.ce_classify_enabled =
 		cfg_get(psoc, CFG_DP_CE_CLASSIFY_ENABLE);
 	cdp_cfg.tso_enable = cfg_get(psoc, CFG_DP_TSO);

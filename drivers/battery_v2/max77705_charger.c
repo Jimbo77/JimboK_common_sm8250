@@ -2660,16 +2660,16 @@ static void max77705_wc_current_work(struct work_struct *work)
 	} else {
 		if (charger->wc_pre_current > charger->wc_current) {
 			diff_current = charger->wc_pre_current - charger->wc_current;
-			if (diff_current < WC_CURRENT_STEP)
+			if (diff_current < charger->pdata->wc_current_step)
 				charger->wc_pre_current -= diff_current;
 			else
-				charger->wc_pre_current -= WC_CURRENT_STEP;
+				charger->wc_pre_current -= charger->pdata->wc_current_step;
 		} else {
 			diff_current = charger->wc_current - charger->wc_pre_current;
-			if (diff_current < WC_CURRENT_STEP)
+			if (diff_current < charger->pdata->wc_current_step)
 				charger->wc_pre_current += diff_current;
 			else
-				charger->wc_pre_current += WC_CURRENT_STEP;
+				charger->wc_pre_current += charger->pdata->wc_current_step;
 		}
 		max77705_set_input_current(charger, charger->wc_pre_current);
 		queue_delayed_work(charger->wqueue, &charger->wc_current_work,
@@ -2777,6 +2777,14 @@ static int max77705_charger_parse_dt(struct max77705_charger_data *charger)
 			else
 				max77705_set_snkcap(charger->snkcap_data, len);
 		}
+
+		ret = of_property_read_u32(np, "battery,wc_current_step",
+					   &pdata->wc_current_step);
+		if (ret) {
+			pr_info("%s: battery,wc_current_step is Empty\n", __func__);
+			pdata->wc_current_step = WC_CURRENT_STEP; /* default 100mA */
+		}
+		pr_info("%s: battery,wc_current_step is %d\n", __func__, pdata->wc_current_step);
 	}
 
 	np = of_find_node_by_name(NULL, "max77705-fuelgauge");

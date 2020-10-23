@@ -2042,6 +2042,9 @@ static bool zram_meta_alloc(struct zram *zram, u64 disksize)
 static void zram_free_page(struct zram *zram, size_t index)
 {
 	struct zram_entry *entry;
+#ifdef CONFIG_ZRAM_LRU_WRITEBACK
+	unsigned long flags;
+#endif
 
 #ifdef CONFIG_ZRAM_MEMORY_TRACKING
 	zram->table[index].ac_time = 0;
@@ -2091,10 +2094,10 @@ out:
 	WARN_ON_ONCE(zram->table[index].flags &
 		~(1UL << ZRAM_LOCK | 1UL << ZRAM_UNDER_WB));
 #ifdef CONFIG_ZRAM_LRU_WRITEBACK
-	spin_lock(&zram->list_lock);
+	spin_lock_irqsave(&zram->list_lock, flags);
 	if (!list_empty(&zram->table[index].lru_list))
 		list_del_init(&zram->table[index].lru_list);
-	spin_unlock(&zram->list_lock);
+	spin_unlock_irqrestore(&zram->list_lock, flags);
 #endif
 }
 
@@ -2105,6 +2108,9 @@ static int __zram_bvec_read(struct zram *zram, struct page *page, u32 index,
 	struct zram_entry *entry;
 	unsigned int size;
 	void *src, *dst;
+#ifdef CONFIG_ZRAM_LRU_WRITEBACK
+	unsigned long flags;
+#endif
 
 	zram_slot_lock(zram, index);
 	if (zram_test_flag(zram, index, ZRAM_WB)) {
@@ -2167,10 +2173,10 @@ static int __zram_bvec_read(struct zram *zram, struct page *page, u32 index,
 	}
 	zs_unmap_object(zram->mem_pool, zram_entry_handle(zram, entry));
 #ifdef CONFIG_ZRAM_LRU_WRITEBACK
-	spin_lock(&zram->list_lock);
+	spin_lock_irqsave(&zram->list_lock, flags);
 	if (!list_empty(&zram->table[index].lru_list))
 		list_del_init(&zram->table[index].lru_list);
-	spin_unlock(&zram->list_lock);
+	spin_unlock_irqrestore(&zram->list_lock, flags);
 #endif
 	zram_slot_unlock(zram, index);
 
@@ -2223,6 +2229,9 @@ static int __zram_bvec_write(struct zram *zram, struct bio_vec *bvec,
 	u32 checksum;
 	unsigned long element = 0;
 	enum zram_pageflags flags = 0;
+#ifdef CONFIG_ZRAM_LRU_WRITEBACK
+	unsigned long irq_flags;
+#endif
 
 	mem = kmap_atomic(page);
 	if (page_same_filled(mem, &element)) {
@@ -2330,9 +2339,9 @@ out:
 		zram_set_entry(zram, index, entry);
 		zram_set_obj_size(zram, index, comp_len);
 #ifdef CONFIG_ZRAM_LRU_WRITEBACK
-		spin_lock(&zram->list_lock);
+		spin_lock_irqsave(&zram->list_lock, irq_flags);
 		list_add_tail(&zram->table[index].lru_list, &zram->list);
-		spin_unlock(&zram->list_lock);
+		spin_unlock_irqrestore(&zram->list_lock, irq_flags);
 #endif
 	}
 	zram_slot_unlock(zram, index);

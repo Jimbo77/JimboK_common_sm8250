@@ -169,7 +169,6 @@ enum PANEL_LEVEL_KEY {
 enum backlight_origin {
 	BACKLIGHT_NORMAL,
 	BACKLIGHT_FINGERMASK_ON,
-	BACKLIGHT_FINGERMASK_ON_SUSTAIN,
 	BACKLIGHT_FINGERMASK_OFF,
 };
 
@@ -428,6 +427,8 @@ struct samsung_display_dtsi_data {
 	/* Backlight IC discharge delay */
 	int blic_discharging_delay_tft;
 	int cabc_delay;
+
+	int ddi_id_length;
 };
 
 struct display_status {
@@ -1672,6 +1673,9 @@ struct samsung_display_driver_data {
 	 */
 	/* CABC feature */
 	int support_cabc;
+
+	/* LP RX timeout recovery */
+	bool support_lp_rx_err_recovery;
 
 	/*
 	 *  ESD

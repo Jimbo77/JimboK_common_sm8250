@@ -464,7 +464,6 @@ static void input_booster_##_DEVICE_##_timeout_work_func(struct work_struct *wor
 		pr_booster("[Input Booster]\n"); \
 		REMOVE_BOOSTER; \
 		_this->index = 0; \
-		_this->multi_events = (_this->multi_events > 0) ? 0 : _this->multi_events; \
 		CHANGE_STATE_TO(idle); \
 	} \
 	mutex_unlock(&_this->lock); \

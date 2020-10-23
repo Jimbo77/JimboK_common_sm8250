@@ -2213,7 +2213,7 @@ int cam_ois_shift_calibration(struct cam_ois_ctrl_t *o_ctrl, uint16_t af_positio
 		if (rc < 0)
 			CAM_ERR(CAM_OIS, "write module#1 ois shift calibration error");
 	}
-#if !(defined(CONFIG_SEC_Z3Q_PROJECT) || defined(CONFIG_SEC_C2Q_PROJECT) || defined(CONFIG_SEC_R8Q_PROJECT))
+#if !(defined(CONFIG_SEC_Z3Q_PROJECT) || defined(CONFIG_SEC_C2Q_PROJECT))
 	else if (subdev_id == 2) {
 		CAM_DBG(CAM_OIS, "write for TELE %d", subdev_id);
 
@@ -3689,7 +3689,12 @@ int cam_ois_write_gyro_orientation(struct cam_ois_ctrl_t *o_ctrl)
            new_data1[0] = 0x01, new_data1[1] = 0x01, new_data1[2] = 0x01;
            new_data2[0] = 0x00, new_data2[1] = 0x00;
 	}
-#elif defined(CONFIG_SEC_F2Q_PROJECT)
+#if defined(CONFIG_MACH_R8Q_EUR_OPEN) || defined(CONFIG_MACH_R8Q_CHN_HKX) || defined(CONFIG_MACH_R8Q_CHN_OPEN)\
+	|| defined(CONFIG_MACH_R8Q_KOR_SINGLE)
+	new_data1[0] = 0x00, new_data1[1] = 0x01, new_data1[2] = 0x01;
+	new_data2[0] = 0x01, new_data2[1] = 0x00;
+#endif
+#elif defined(CONFIG_SEC_F2Q_PROJECT) || defined(CONFIG_SEC_VICTORY_PROJECT)
 	uint8_t new_data1[3] = { 0x00, 0x00, 0x01 };
 	uint8_t new_data2[2] = { 0x01, 0x01 };
 #else

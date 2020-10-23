@@ -1986,6 +1986,14 @@ static QDF_STATUS hdd_dis_connect_handler(struct hdd_adapter *adapter,
 	policy_mgr_check_concurrent_intf_and_restart_sap(hdd_ctx->psoc);
 	adapter->hdd_stats.tx_rx_stats.cont_txtimeout_cnt = 0;
 
+	/*
+	 * Reset hdd_reassoc_scenario to false here. After roaming in
+	 * 802.1x or WPA3 security, EAPOL is handled at supplicant and
+	 * the hdd_reassoc_scenario flag will not be reset if disconnection
+	 * happens before EAP/EAPOL at supplicant is complete.
+	 */
+	sta_ctx->hdd_reassoc_scenario = false;
+
 	/* Unblock anyone waiting for disconnect to complete */
 	complete(&adapter->disconnect_comp_var);
 
@@ -2958,6 +2966,36 @@ void hdd_clear_fils_connection_info(struct hdd_adapter *adapter)
 #endif
 
 /**
+ * hdd_netif_queue_enable() - Enable the network queue for a
+ *			      particular adapter.
+ * @adapter: pointer to the adapter structure
+ *
+ * This function schedules a work to update the netdev features
+ * and enable the network queue if the feature "disable checksum/tso
+ * for legacy connections" is enabled via INI. If not, it will
+ * retain the existing behavior by just enabling the network queues.
+ *
+ * Returns: none
+ */
+static inline void hdd_netif_queue_enable(struct hdd_adapter *adapter)
+{
+	ol_txrx_soc_handle soc = cds_get_context(QDF_MODULE_ID_SOC);
+	struct hdd_context *hdd_ctx = WLAN_HDD_GET_CTX(adapter);
+
+	if (cdp_cfg_get(soc, cfg_dp_disable_legacy_mode_csum_offload)) {
+		hdd_adapter_ops_record_event(hdd_ctx,
+					     WLAN_HDD_ADAPTER_OPS_WORK_POST,
+					     adapter->vdev_id);
+		qdf_queue_work(0, hdd_ctx->adapter_ops_wq,
+			       &adapter->netdev_features_update_work);
+	} else {
+		wlan_hdd_netif_queue_control(adapter,
+					     WLAN_WAKE_ALL_NETIF_QUEUE,
+					     WLAN_CONTROL_PATH);
+	}
+}
+
+/**
  * hdd_association_completion_handler() - association completion handler
  * @adapter: pointer to adapter
  * @roam_info: pointer to roam info
@@ -3437,10 +3475,7 @@ hdd_association_completion_handler(struct hdd_adapter *adapter,
 						roam_info,
 						roam_info->bss_desc);
 				hdd_debug("Enabling queues");
-				wlan_hdd_netif_queue_control(adapter,
-						WLAN_WAKE_ALL_NETIF_QUEUE,
-						WLAN_CONTROL_PATH);
-
+				hdd_netif_queue_enable(adapter);
 			}
 			qdf_mem_free(rsp_rsn_ie);
 		} else {
@@ -3510,9 +3545,7 @@ hdd_association_completion_handler(struct hdd_adapter *adapter,
 				hdd_debug("LFR3:netif_tx_wake_all_queues");
 #endif
 			hdd_debug("Enabling queues");
-			wlan_hdd_netif_queue_control(adapter,
-						   WLAN_WAKE_ALL_NETIF_QUEUE,
-						   WLAN_CONTROL_PATH);
+			hdd_netif_queue_enable(adapter);
 		}
 		qdf_mem_free(reqRsnIe);
 

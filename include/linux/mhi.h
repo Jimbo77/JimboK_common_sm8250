@@ -15,6 +15,7 @@ struct mhi_buf_info;
 struct mhi_sfr_info;
 
 #define REG_WRITE_QUEUE_LEN 1024
+#define MHI_MAX_PP_ABORT_COUNT 100
 
 /**
  * enum MHI_CB - MHI callback
@@ -27,6 +28,7 @@ struct mhi_sfr_info;
  * @MHI_CB_EE_MISSION_MODE: MHI device entered Mission Mode ee
  * @MHI_CB_SYS_ERROR: MHI device enter error state (may recover)
  * @MHI_CB_FATAL_ERROR: MHI device entered fatal error
+ * @MHI_CB_BOOTUP_TIMEOUT: MHI device did not get to a bootup state in time
  */
 enum MHI_CB {
 	MHI_CB_IDLE,
@@ -38,6 +40,7 @@ enum MHI_CB {
 	MHI_CB_EE_MISSION_MODE,
 	MHI_CB_SYS_ERROR,
 	MHI_CB_FATAL_ERROR,
+	MHI_CB_BOOTUP_TIMEOUT,
 };
 
 /**
@@ -336,6 +339,7 @@ struct mhi_controller {
 	atomic_t dev_wake;
 	atomic_t alloc_size;
 	atomic_t pending_pkts;
+	u32 pp_abort_counter;
 	struct list_head transition_list;
 	spinlock_t transition_lock;
 	spinlock_t wlock;

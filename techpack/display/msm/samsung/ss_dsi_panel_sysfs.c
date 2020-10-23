@@ -3260,13 +3260,23 @@ static ssize_t ss_disp_SVC_OCTA_DDI_CHIPID_show(struct device *dev,
 	vdd = ss_check_hall_ic_get_vdd(vdd);
 	ddi_id = vdd->ddi_id_dsi;
 
-	snprintf((char *)temp, sizeof(temp), "%02x%02x%02x%02x%02x\n",
-		ddi_id[0], ddi_id[1], ddi_id[2], ddi_id[3], ddi_id[4]);
+	if (vdd->dtsi_data.ddi_id_length == 6) {
+		snprintf((char *)temp, sizeof(temp), "%02x%02x%02x%02x%02x%02x\n",
+			ddi_id[0], ddi_id[1], ddi_id[2], ddi_id[3], ddi_id[4], ddi_id[5]);
 
-	strlcat(buf, temp, string_size);
+		strlcat(buf, temp, string_size);
 
-	LCD_INFO("%02x %02x %02x %02x %02x\n",
-		ddi_id[0], ddi_id[1], ddi_id[2], ddi_id[3], ddi_id[4]);
+		LCD_INFO("%02x %02x %02x %02x %02x %02x\n",
+			ddi_id[0], ddi_id[1], ddi_id[2], ddi_id[3], ddi_id[4], ddi_id[5]);
+	} else {
+		snprintf((char *)temp, sizeof(temp), "%02x%02x%02x%02x%02x\n",
+			ddi_id[0], ddi_id[1], ddi_id[2], ddi_id[3], ddi_id[4]);
+
+		strlcat(buf, temp, string_size);
+
+		LCD_INFO("%02x %02x %02x %02x %02x\n",
+			ddi_id[0], ddi_id[1], ddi_id[2], ddi_id[3], ddi_id[4]);
+	}
 
 	return strnlen(buf, string_size);
 }

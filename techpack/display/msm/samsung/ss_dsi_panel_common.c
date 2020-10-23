@@ -2588,8 +2588,12 @@ int ss_panel_on_pre(struct samsung_display_driver_data *vdd)
 	if (vdd->br_info.common_br.gamma_mode2_support) {
 		struct flash_gm2 *gm2_table = &vdd->br_info.gm2_table;
 
-		if (gm2_table->mtp_one_vbias_mode) {
-			/* read one vbias mode from MTP */
+		if (gm2_table->mtp_one_vbias_mode &&
+				(vdd->is_factory_mode || !gm2_table->flash_gm2_init_done)) {
+			/* Read one vbias mode from MTP.
+			 * Factory binary has panel swap test. For that case, read vbias MTP data
+			 * in every display on sequence.
+			 */
 			LCD_INFO("read vbias mtp data\n");
 			ss_panel_data_read(vdd, RX_VBIAS_MTP, gm2_table->mtp_one_vbias_mode, LEVEL1_KEY);
 		}
@@ -2846,6 +2850,10 @@ int ss_panel_off_post(struct samsung_display_driver_data *vdd)
 
 	if (vdd->finger_mask)
 		vdd->finger_mask = false;
+
+	/* To prevent panel off without finger off */
+	if (vdd->br_info.common_br.finger_mask_hbm_on)
+		vdd->br_info.common_br.finger_mask_hbm_on = false;
 
 	LCD_INFO("[DISPLAY_%d] -\n", vdd->ndx);
 	SS_XLOG(SS_XLOG_FINISH);
@@ -4769,6 +4777,9 @@ static void ss_panel_parse_dt(struct samsung_display_driver_data *vdd)
 		vdd->fg_err_gpio = -1; /* default 0 is valid gpio... set invalid gpio.. */
 	}
 
+	vdd->support_lp_rx_err_recovery = of_property_read_bool(np, "samsung,support_lp_rx_err_recovery");
+	LCD_INFO("support_lp_rx_err_recovery : %d\n", vdd->support_lp_rx_err_recovery);
+
 	ss_panel_parse_dt_esd(np, vdd);
 	ss_panel_parse_dt_ub_con(np, vdd);
 	ss_panel_pbaboot_config(np, vdd);
@@ -4911,6 +4922,10 @@ static void ss_panel_parse_dt(struct samsung_display_driver_data *vdd)
 	vdd->lp11_sleep_ms_time = (!rc ? tmp[0] : 0);
 	LCD_INFO("lp11_sleep_ms_time : %d\n",
 		vdd->lp11_sleep_ms_time);
+
+	rc = of_property_read_u32(np, "samsung,ddi_id_length", tmp);
+	vdd->dtsi_data.ddi_id_length = (!rc ? tmp[0] : 0);
+	LCD_INFO("ddi_id_length = [%d]\n", vdd->dtsi_data.ddi_id_length);
 }
 
 /***********/
@@ -6396,11 +6411,13 @@ int ss_brightness_dcs(struct samsung_display_driver_data *vdd, int level, int ba
 		if ((vdd->br_info.common_br.finger_mask_hbm_on) && (backlight_origin == BACKLIGHT_NORMAL)) {/* finger mask hbm on & bl update from normal */
 			backup_acl = vdd->br_info.acl_status;
 
-			if (level != USE_CURRENT_BL_LEVEL)
+			if (level != USE_CURRENT_BL_LEVEL) {
 				backup_bl_level = level;
 
-			LCD_INFO("[FINGER_MASK]BACKLIGHT_NORMAL save backup_acl = %d, backup_level = %d, vdd->br_info.common_br.bl_level=%d\n", backup_acl, backup_bl_level, vdd->br_info.common_br.bl_level);
-			goto skip_bl_update;
+				LCD_INFO("[FINGER_MASK]BACKLIGHT_NORMAL save backup_acl = %d, backup_level = %d, vdd->br_info.common_br.bl_level=%d\n",
+					backup_acl, backup_bl_level, vdd->br_info.common_br.bl_level);
+				goto skip_bl_update;
+			}
 		}
 
 		/* From BACKLIGHT_FINGERMASK_ON
@@ -6408,8 +6425,6 @@ int ss_brightness_dcs(struct samsung_display_driver_data *vdd, int level, int ba
 		*   2. backup previous bl_level & acl value
 		*  From BACKLIGHT_FINGERMASK_OFF
 		*   1. restore backup bl_level & acl value
-		*  From BACKLIGHT_FINGERMASK_ON_SUSTAIN
-		*   1. brightness update with finger_bl_level.
 		*/
 
 		if (backlight_origin == BACKLIGHT_FINGERMASK_ON) {
@@ -6432,12 +6447,6 @@ int ss_brightness_dcs(struct samsung_display_driver_data *vdd, int level, int ba
 
 			LCD_INFO("[FINGER_MASK]BACKLIGHT_FINGERMASK_OFF turn off finger hbm & restore acl = %d, level = %d\n",
 				vdd->br_info.acl_status, level);
-		}
-		else if(backlight_origin == BACKLIGHT_FINGERMASK_ON_SUSTAIN) {
-			LCD_INFO("[FINGER_MASK]BACKLIGHT_FINGERMASK_ON_SUSTAIN \
-				send finger hbm & back up acl = %d, level = %d->%d\n",
-				vdd->br_info.acl_status, level,vdd->br_info.common_br.finger_mask_bl_level);
-			level = vdd->br_info.common_br.finger_mask_bl_level;
 		}
 	}
 
@@ -7302,10 +7311,7 @@ void ss_panel_vrr_switch(struct vrr_info *vrr)
 		vrr->cur_refresh_rate = adjusted_rr;
 		vrr->cur_sot_hs_mode = adjusted_hs;
 
-		if(vdd->br_info.common_br.finger_mask_hbm_on)
-			ss_brightness_dcs(vdd, 0, BACKLIGHT_FINGERMASK_ON_SUSTAIN);
-		else
-			ss_brightness_dcs(vdd, USE_CURRENT_BL_LEVEL, BACKLIGHT_NORMAL);
+		ss_brightness_dcs(vdd, USE_CURRENT_BL_LEVEL, BACKLIGHT_NORMAL);
 
 		/* HS <-> Normal mode: remove one black frame and restore to original brightness */
 		if (vrr->black_frame_mode == BLACK_FRAME_INSERT) {
@@ -7340,10 +7346,7 @@ void ss_panel_vrr_switch(struct vrr_info *vrr)
 		 * In BRR mode, SOT_HS mode is not changed.
 		 */
 		vrr->cur_refresh_rate = fps_brr;
-		if(vdd->br_info.common_br.finger_mask_hbm_on)
-			ss_brightness_dcs(vdd, 0, BACKLIGHT_FINGERMASK_ON_SUSTAIN);
-		else
-			ss_brightness_dcs(vdd, USE_CURRENT_BL_LEVEL, BACKLIGHT_NORMAL);
+		ss_brightness_dcs(vdd, USE_CURRENT_BL_LEVEL, BACKLIGHT_NORMAL);
 
 		if (brr->delay_frame_cnt <= 0) {
 			LCD_ERR("VRR: delay_frame_cnt: %d, set default value 4\n", brr->delay_frame_cnt);
@@ -7371,10 +7374,7 @@ void ss_panel_vrr_switch(struct vrr_info *vrr)
 				/* update current VRR mode before restore
 				 * SDE core clock to prevent screen noise
 				 */
-				if(vdd->br_info.common_br.finger_mask_hbm_on)
-					ss_brightness_dcs(vdd, 0, BACKLIGHT_FINGERMASK_ON_SUSTAIN);
-				else
-					ss_brightness_dcs(vdd, vrr->brr_bl_level, BACKLIGHT_NORMAL);
+				ss_brightness_dcs(vdd, vrr->brr_bl_level, BACKLIGHT_NORMAL);
 
 				goto brr_done;
 			}
@@ -7411,10 +7411,7 @@ void ss_panel_vrr_switch(struct vrr_info *vrr)
 	vrr->cur_refresh_rate = adjusted_rr;
 	vrr->cur_sot_hs_mode = adjusted_hs;
 
-	if(vdd->br_info.common_br.finger_mask_hbm_on)
-		ss_brightness_dcs(vdd, 0, BACKLIGHT_FINGERMASK_ON_SUSTAIN);
-	else
-		ss_brightness_dcs(vdd, USE_CURRENT_BL_LEVEL, BACKLIGHT_NORMAL);
+	ss_brightness_dcs(vdd, USE_CURRENT_BL_LEVEL, BACKLIGHT_NORMAL);
 
 brr_done:
 

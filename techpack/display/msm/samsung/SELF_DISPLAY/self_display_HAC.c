@@ -1049,9 +1049,6 @@ static void self_mask_on(struct samsung_display_driver_data *vdd, int enable)
 			ss_send_cmd(vdd, TX_SELF_MASK_ON_FACTORY);
 		else
 			ss_send_cmd(vdd, TX_SELF_MASK_ON);
-
-		LCD_INFO("check self mask CRC\n");
-		self_display_debug(vdd);
 	} else {
 		ss_send_cmd(vdd, TX_SELF_MASK_OFF);
 	}

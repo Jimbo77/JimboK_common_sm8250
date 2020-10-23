@@ -5655,6 +5655,7 @@ static void run_elvss_test(void *device_data)
 		return;
 	}
 
+	info->fts_systemreset(info, 0);
 	fts_interrupt_set(info, INT_DISABLE);
 
 	memset(data, 0x00, 8);
@@ -5670,6 +5671,7 @@ static void run_elvss_test(void *device_data)
 				"%s: write failed. ret: %d\n", __func__, ret);
 		sec_cmd_set_cmd_result(sec, buff, strnlen(buff, sizeof(buff)));
 		sec->cmd_state = SEC_CMD_STATUS_FAIL;
+		fts_reinit(info, false);
 		fts_interrupt_set(info, INT_ENABLE);
 		return;
 	}
@@ -5691,10 +5693,11 @@ static void run_elvss_test(void *device_data)
 			break;
 		}
 		retry--;
-		fts_delay(20);
+		fts_delay(50);
 
 	}
 
+	fts_reinit(info, false);
 	fts_interrupt_set(info, INT_ENABLE);
 
 	sec_cmd_set_cmd_result(sec, buff, strnlen(buff, sizeof(buff)));

@@ -574,7 +574,7 @@ static int cam_eeprom_module_info_set_dual_tilt(eDualTiltMode tiltMode, uint32_t
 		switch (tiltMode)
 		{
 #if defined(CONFIG_SEC_X1Q_PROJECT) || defined(CONFIG_SEC_Y2Q_PROJECT) || defined(CONFIG_SEC_C1Q_PROJECT) || defined(CONFIG_SEC_F2Q_PROJECT)\
-	 || defined(CONFIG_SEC_R8Q_PROJECT)
+	 || defined(CONFIG_SEC_R8Q_PROJECT) || defined(CONFIG_SEC_VICTORY_PROJECT)
 			case DUAL_TILT_REAR_TELE:
 				offset_dll_ver          = 0x02F4;
 				offset_x                = 0x00B8;
@@ -1188,7 +1188,7 @@ static int cam_eeprom_update_module_info(struct cam_eeprom_ctrl_t *e_ctrl)
 	}
 
 	if (e_ctrl->soc_info.index == CAM_EEPROM_IDX_FRONT) {
-#if !defined(CONFIG_SAMSUNG_FRONT_TOP_EEPROM)
+#if !(defined(CONFIG_SAMSUNG_FRONT_TOP_EEPROM) || defined(CONFIG_SAMSUNG_FRONT_FIXED_FOCUS))
 		/* front af cal*/
 		if(isValidIdx(ADDR_M_AF, &ConfAddr) == 1)
 		{
@@ -1265,7 +1265,11 @@ static int cam_eeprom_update_module_info(struct cam_eeprom_ctrl_t *e_ctrl)
 #if defined(CONFIG_SEC_Z3Q_PROJECT) || defined(CONFIG_SEC_C2Q_PROJECT) || defined(CONFIG_SEC_R8Q_PROJECT)
 		if (e_ctrl->soc_info.index == CAM_EEPROM_IDX_BACK3) {
 			AfIdx_t rear3_idx_simple[] = {
+#if defined(CONFIG_SEC_R8Q_PROJECT)
+				{AF_CAL_D40_IDX, AF_CAL_MACRO3_OFFSET_FROM_AF},
+#else
 				{AF_CAL_MACRO_IDX, AF_CAL_MACRO3_OFFSET_FROM_AF},
+#endif
 				{AF_CAL_PAN_IDX, AF_CAL_PAN_OFFSET_FROM_AF}
 			};
 
@@ -1307,7 +1311,7 @@ static int cam_eeprom_update_module_info(struct cam_eeprom_ctrl_t *e_ctrl)
 #if defined(CONFIG_SEC_X1Q_PROJECT) || defined(CONFIG_SEC_Y2Q_PROJECT)|| defined(CONFIG_SEC_C2Q_PROJECT)\
 	|| defined(CONFIG_SEC_C1Q_PROJECT)
 		if (e_ctrl->cal_data.num_data > 0x5C00)
-#elif defined(CONFIG_SEC_F2Q_PROJECT)
+#elif defined(CONFIG_SEC_F2Q_PROJECT) || defined(CONFIG_SEC_VICTORY_PROJECT)
 		if (e_ctrl->cal_data.num_data > 0x5200)
 #elif defined(CONFIG_SEC_Z3Q_PROJECT)
 		if (e_ctrl->cal_data.num_data > 0x6700)
@@ -1337,7 +1341,11 @@ static int cam_eeprom_update_module_info(struct cam_eeprom_ctrl_t *e_ctrl)
 			};
 
 			AfIdx_t rear3_idx[] = {
+#if defined(CONFIG_SEC_R8Q_PROJECT)
+				{AF_CAL_D40_IDX, AF_CAL_D80_OFFSET_FROM_AF},
+#else
 				{AF_CAL_D80_IDX, AF_CAL_D80_OFFSET_FROM_AF},
+#endif
 				{AF_CAL_PAN_IDX, AF_CAL_PAN_OFFSET_FROM_AF}
 			};
 
@@ -1357,7 +1365,7 @@ static int cam_eeprom_update_module_info(struct cam_eeprom_ctrl_t *e_ctrl)
 			};
 
 			AfIdx_t rear3_idx[] = {
-#if !defined(CONFIG_SEC_F2Q_PROJECT)
+#if !defined(CONFIG_SEC_F2Q_PROJECT) && !defined(CONFIG_SEC_VICTORY_PROJECT)
 				{AF_CAL_D30_IDX, AF_CAL_D30_OFFSET_FROM_AF},
 #endif
 				{AF_CAL_D50_IDX, AF_CAL_D50_OFFSET_FROM_AF},
