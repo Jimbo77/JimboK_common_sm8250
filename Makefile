@@ -432,6 +432,7 @@ KBUILD_CFLAGS   := -Wall -Wundef -Wno-trigraphs \
 		   -Wno-pointer-to-int-cast \
 		   -Wno-bool-operation \
 		   -Wno-unused-function \
+		   -Wno-unused-variable \
 		   -Wno-declaration-after-statement \
 		   -Wno-pointer-compare \
 		   -std=gnu89
