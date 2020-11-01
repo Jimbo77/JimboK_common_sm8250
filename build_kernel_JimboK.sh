@@ -37,7 +37,12 @@ make O=$(pwd)/out $KERNEL_MAKE_ENV CROSS_COMPILE=$BUILD_CROSS_COMPILE REAL_CC=$K
 make -j$(nproc) O=$(pwd)/out $KERNEL_MAKE_ENV CROSS_COMPILE=$BUILD_CROSS_COMPILE REAL_CC=$KERNEL_LLVM_BIN CLANG_TRIPLE=$CLANG_TRIPLE CFP_CC=$KERNEL_LLVM_BIN
 
 cp $(pwd)/out/arch/$ARCH/boot/Image.gz $(pwd)/out/Image.gz
+
+DTBO_FILES=$(find ${DTS_DIR}/samsung/ -name ${CHIPSET_NAME}-sec-*-r*.dtbo)
+
 cat ${DTS_DIR}/vendor/qcom/*.dtb > $(pwd)/out/dtb.img
+
+$(pwd)/tools/mkdtimg create $(pwd)/out/dtbo.img --page_size=4096 ${DTBO_FILES}
 
 mv $(pwd)/out/Image.gz $(pwd)/out/Image-JimboK_$1.gz
 mv $(pwd)/out/dtb.img $(pwd)/out/dtb-JimboK_$1.img
