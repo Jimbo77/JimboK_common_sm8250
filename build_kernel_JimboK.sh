@@ -1,5 +1,6 @@
 #!/bin/bash -x
 
+CHIPSET_NAME=kona
 VARIANT=$1
 VERSION=$2
 
