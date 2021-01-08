@@ -19,12 +19,7 @@ CONFIG_THREAD_INFO_IN_TASK=y
 
 CONFIG_INIT_ENV_ARG_LIMIT=32
 # CONFIG_COMPILE_TEST is not set
-<<<<<<< HEAD:arch/arm64/configs/vendor/z3q_kor_singlex_defconfig
-CONFIG_LOCALVERSION="-JimboK-0.9.0"
-=======
-CONFIG_LOCALVERSION="-JimboK-1.2.1"
-CONFIG_BOEFFLA_WL_BLOCKER=y
->>>>>>> 5e07d725390b... Removed individual defconfigs per device along with the script i had for each of them. Moved to a more unified approach by having a 'master' defconfig and then each individual VARIANT defconfig, following Jesse Chan idea in the LOS / first Custom Kernel for Samsung's SM8250:arch/arm64/configs/vendor/jimbok_defconfig
+CONFIG_LOCALVERSION="-JimboK-test"
 CONFIG_BUILD_SALT=""
 CONFIG_DEFAULT_HOSTNAME="(none)"
 CONFIG_SWAP=y
