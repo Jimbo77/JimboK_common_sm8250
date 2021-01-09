@@ -45,7 +45,7 @@ mv $(pwd)/out/Image $(pwd)/out/Image-JimboK_$1
 
 mv $(pwd)/out/dtb.img $(pwd)/out/dtb-JimboK_$1.img
 
-cp $(pwd)/out/Image-JimboK_$1 ~/build/mkbootimg-master2
-cp $(pwd)/out/dtb-JimboK_$1.img ~/build/mkbootimg-master2
+cp $(pwd)/out/Image-JimboK_$1 ~/build/mkbootimg-master3
+cp $(pwd)/out/dtb-JimboK_$1.img ~/build/mkbootimg-master3
 
-~/build/mkbootimg-master2/make_boot_$1.sh $2-$1
+~/build/mkbootimg-master3/make_boot_$1.sh $2-$1
